@@ -95,12 +95,15 @@ func asyncHandlerequest(conn net.Conn) {
 func handleGetRequest(conn net.Conn, req *http.Request) {
 	file, err := rootDir.Open(strings.TrimPrefix(req.URL.Path, "/"))
 	if err != nil {
+		slog.Debug(fmt.Sprintf("Error opening file: %v", err))
+		slog.Debug(fmt.Sprintf("Full path %s", wwwDir+req.URL.Path))
 		writeErrorResponse(conn, 404)
 		return
 	}
 	defer file.Close()
 	fileInfo, err := file.Stat()
 	if err != nil {
+		slog.Debug(fmt.Sprintf("Error getting file info: %v", err))
 		writeErrorResponse(conn, 404)
 		return
 	}
