@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -54,6 +55,10 @@ func Serve(port string) error {
 		if err != nil {
 			semaphore.Release() // Release the semaphore if we failed to accept a connection.
 			slog.Debug(fmt.Sprintf("Error accepting connection: %v", err))
+			if errors.Is(net.ErrClosed, err) {
+				// Listener closed, exit gracefully.
+				return nil
+			}
 			continue
 		}
 
