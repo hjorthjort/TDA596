@@ -128,6 +128,13 @@ func handleGetRequest(conn net.Conn, req *http.Request) {
 	}
 }
 
+func handlePostRequest(conn net.Conn, req *http.Request) {
+	// TODO: Implement handling of POST requests
+	// POST writes to a new temporary file, and on success, it renames the
+	// temporary file to the requested file name. If the requested file already
+	// exists, it should be overwritten. On Unix this is atomic.
+}
+
 func createHttpResponseHeader(statusCode int, fileInfo os.FileInfo) []byte {
 	header := fmt.Sprintf("HTTP/1.1 %d %s\r\nContent-Length: %d\r\nContent-Type: %s\r\nConnection: close\r\n\r\n",
 		statusCode,
