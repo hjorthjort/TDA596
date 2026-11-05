@@ -109,7 +109,8 @@ func handleGetRequest(conn net.Conn, req *http.Request) {
 		return
 	}
 
-	if _, err := conn.Write(createHttpResponseHeader(200, fileInfo)); err != nil {
+	contentType := supportedFileTypes[filepath.Ext(fileInfo.Name())]
+	if _, err := conn.Write(createHttpResponseHeader(200, fileInfo.Size(), contentType)); err != nil {
 		slog.Debug(fmt.Sprintf("Error writing response header: %v", err))
 		return
 	}
@@ -142,22 +143,28 @@ func handlePostRequest(conn net.Conn, req *http.Request) {
 
 }
 
-func createHttpResponseHeader(statusCode int, fileInfo os.FileInfo) []byte {
-	header := fmt.Sprintf("HTTP/1.1 %d %s\r\nContent-Length: %d\r\nContent-Type: %s\r\nConnection: close\r\n\r\n",
+func createHttpResponseHeader(statusCode int, contentLength int64, contentType string) []byte {
+	header := fmt.Sprintf(
+		"HTTP/1.1 %d %s\r\n"+
+			"Date: %s\r\n"+
+			"Content-Length: %d\r\n"+
+			"Connection: close\r\n",
 		statusCode,
 		http.StatusText(statusCode),
-		fileInfo.Size(),
-		supportedFileTypes[filepath.Ext(fileInfo.Name())])
-	return []byte(header)
+		time.Now().UTC().Format(http.TimeFormat),
+		contentLength,
+	)
+	if contentType != "" {
+		header += "Content-Type: " + contentType + "\r\n"
+	}
+	// A blank line marks the end of the headers.
+	return []byte(header + "\r\n")
 }
 
 func writeErrorResponse(conn net.Conn, statusCode int) {
 	slog.Debug(fmt.Sprintf("Error response: %d", statusCode))
-	if response, ok := errorResponses[statusCode]; ok {
-		if _, err := conn.Write(response); err != nil {
-			slog.Debug(fmt.Sprintf("Error writing %d response: %v", statusCode,
-				err))
-		}
+	if _, err := conn.Write(createHttpResponseHeader(statusCode, 0, "")); err != nil {
+		slog.Debug(fmt.Sprintf("Error writing %d response: %v", statusCode, err))
 	}
 }
 
