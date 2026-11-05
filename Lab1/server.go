@@ -47,15 +47,15 @@ func Serve(port string) error {
 
 	// Lightweight *synchronous* loop to accept connections and handle them *asynchronously*.
 	for {
+		// Only spawn a child process if there are available slots. Always
+		// release the semaphore after handling the request.
+		semaphore.Acquire()
 		conn, err := listener.Accept()
 		if err != nil {
 			slog.Debug(fmt.Sprintf("Error accepting connection: %v", err))
 			continue
 		}
 
-		// Only spawn a child process if there are available slots. Always
-		// release the semaphore after handling the request.
-		semaphore.Acquire()
 		go func() {
 			defer semaphore.Release() // panic-resistant cleanup
 			asyncHandlerequest(conn)
