@@ -86,7 +86,7 @@ func getListener(port string) (net.Listener, error) {
 // Validates the request.
 // Performs the request and writes the response to the connection.
 func asyncHandlerequest(conn net.Conn) {
-	defer conn.Close() // TODO: Make a struct that releases the semaphore and closes the connection when it goes out of scope.
+	defer conn.Close()
 	reader := bufio.NewReader(conn)
 	req, err := http.ReadRequest(reader)
 	if err != nil {
