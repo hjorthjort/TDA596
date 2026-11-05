@@ -4,12 +4,14 @@ import (
 	"bufio"
 	"crypto/rand"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 var semaphore, _ = CreateSemaphore(10) // Limit to 10 concurrent connections
@@ -126,21 +128,34 @@ func handleGetRequest(conn net.Conn, req *http.Request) {
 }
 
 func handlePostRequest(conn net.Conn, req *http.Request) {
-	// TODO: Implement handling of POST requests
 	// POST writes to a new temporary file, and on success, it renames the
 	// temporary file to the requested file name. If the requested file already
 	// exists, it should be overwritten. On Unix this is atomic.
-
-	// Create tmp file
-
 	tmpFile, err := createTmpFile()
 	if err != nil {
 		slog.Debug(fmt.Sprintf("Error creating tmp file: %v", err))
 		writeErrorResponse(conn, 500)
 		return
 	}
+	defer os.Remove(tmpFile.Name()) // Clean up the temporary file if necessary.
 	defer tmpFile.Close()
-
+	_, err = io.Copy(tmpFile, req.Body)
+	if err != nil {
+		slog.Debug(fmt.Sprintf("Error writing to tmp file: %v", err))
+		writeErrorResponse(conn, 500)
+		return
+	}
+	// Atomically rename the temporary file to the requested file name.
+	err = rootDir.Rename(filepath.Base(tmpFile.Name()), strings.TrimPrefix(req.URL.Path, "/"))
+	if err != nil {
+		slog.Debug(fmt.Sprintf("Error renaming tmp file: %v", err))
+		writeErrorResponse(conn, 500)
+		return
+	}
+	// The upload succeeded. The response has no body.
+	if _, err := conn.Write(createHttpResponseHeader(200, 0, "")); err != nil {
+		slog.Debug(fmt.Sprintf("Error writing response header: %v", err))
+	}
 }
 
 func createHttpResponseHeader(statusCode int, contentLength int64, contentType string) []byte {
