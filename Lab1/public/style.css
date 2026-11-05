@@ -11,8 +11,12 @@ code { font-size: 0.9em; }
 .card { margin: 0; padding: 16px; background: white; border: 1px solid #d5dce4; border-radius: 8px; }
 .card h3 { margin: 0 0 8px; font-size: 1rem; }
 .card p { margin: 8px 0 0; }
-iframe { display: block; width: 100%; height:75%; margin-top: 12px; border: 1px solid #d5dce4; background: white; }
+iframe { display: block; width: 100%; height: 180px; margin-top: 12px; border: 1px solid #d5dce4; background: white; }
 .recipe { height: 420px; }
 img { display: block; width: 100%; height: 190px; margin: 12px 0; object-fit: contain; background: #f4f6f8; }
 figcaption { color: #536171; font-size: 0.9rem; }
 a:focus-visible { outline: 3px solid #135eac; outline-offset: 3px; }
+label, output { display: block; margin: 8px 0; }
+input, textarea, button { font: inherit; max-width: 100%; }
+textarea { display: block; width: 100%; }
+output { overflow-wrap: anywhere; }
