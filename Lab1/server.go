@@ -115,6 +115,7 @@ func handleGetRequest(conn net.Conn, req *http.Request) {
 
 	if _, err := conn.Write(createHttpResponseHeader(200, fileInfo)); err != nil {
 		slog.Debug(fmt.Sprintf("Error writing response header: %v", err))
+		return
 	}
 	// TODO(hj): Buffer the file reading/writing?
 	fileContent := make([]byte, fileInfo.Size())
