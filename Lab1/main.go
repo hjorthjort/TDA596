@@ -17,6 +17,10 @@ func main() {
 		os.Exit(19)
 	}
 	// Accept port number from command line arguments
+	if len(os.Args) != 2 {
+		slog.Debug("Usage: ./server <port>")
+		os.Exit(1)
+	}
 	port := os.Args[1]
 	if err := Serve(port); err != nil {
 		slog.Debug(fmt.Sprintf("Error starting server: %v", err))
