@@ -10,13 +10,13 @@ var errorResponses = map[int][]byte{
 	501: []byte("HTTP/1.1 501 Not Implemented\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"),
 }
 
-var supportedFileTypes = map[string]struct{}{
-	".html": {},
-	".txt":  {},
-	".gif":  {},
-	".jpeg": {},
-	".jpg":  {},
-	".css":  {},
+var supportedFileTypes = map[string]string{
+	".html": "text/html",
+	".txt":  "text/plain",
+	".gif":  "image/gif",
+	".jpeg": "image/jpeg",
+	".jpg":  "image/jpeg",
+	".css":  "text/css",
 }
 
 func isSupportedFileType(path string) bool {

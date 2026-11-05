@@ -6,9 +6,15 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 var semaphore, _ = CreateSemaphore(10) // Limit to 10 concurrent connections
+
+var wwwDir, _ = os.Getwd()                       // Default document root
+var rootDir, _ = os.OpenRoot(wwwDir + "/public") // Traversal resistant path
 
 func Serve(port string) {
 	listener, err := getListener(port)
@@ -25,12 +31,12 @@ func Serve(port string) {
 
 	// Lightweight *synchronous* loop to accept connections and handle them *asynchronously*.
 	for {
-		con, err := listener.Accept()
+		conn, err := listener.Accept()
 		if err != nil {
 			slog.Debug(fmt.Sprintf("Error accepting connection: %v", err))
 			continue
 		}
-		go asyncHandlerequest(con)
+		go asyncHandlerequest(conn)
 	}
 }
 
@@ -46,6 +52,7 @@ func getListener(port string) (net.Listener, error) {
 }
 
 func asyncHandlerequest(conn net.Conn) {
+	defer conn.Close() // TODO: Make a struct that releases the semaphore and closes the connection when it goes out of scope.
 	semaphore.Acquire()
 	defer semaphore.Release()
 	reader := bufio.NewReader(conn)
@@ -77,6 +84,51 @@ func asyncHandlerequest(conn net.Conn) {
 		writeErrorResponse(conn, 400)
 		return
 	}
+	switch req.Method {
+	case "GET":
+		handleGetRequest(conn, req)
+	default:
+		writeErrorResponse(conn, 501)
+	}
+}
+
+func handleGetRequest(conn net.Conn, req *http.Request) {
+	file, err := rootDir.Open(strings.TrimPrefix(req.URL.Path, "/"))
+	if err != nil {
+		slog.Debug(fmt.Sprintf("Error opening file: %v", err))
+		slog.Debug(fmt.Sprintf("Full path %s", wwwDir+req.URL.Path))
+		writeErrorResponse(conn, 404)
+		return
+	}
+	defer file.Close()
+	fileInfo, err := file.Stat()
+	if err != nil {
+		slog.Debug(fmt.Sprintf("Error getting file info: %v", err))
+		writeErrorResponse(conn, 404)
+		return
+	}
+
+	if _, err := conn.Write(createHttpResponseHeader(200, fileInfo)); err != nil {
+		slog.Debug(fmt.Sprintf("Error writing response header: %v", err))
+	}
+	// TODO(hj): Buffer the file reading/writing?
+	fileContent := make([]byte, fileInfo.Size())
+	_, err = file.Read(fileContent)
+	if err != nil {
+		slog.Debug(fmt.Sprintf("Error reading file content: %v", err))
+	}
+	if _, err := conn.Write(fileContent); err != nil {
+		slog.Debug(fmt.Sprintf("Error writing response body: %v", err))
+	}
+}
+
+func createHttpResponseHeader(statusCode int, fileInfo os.FileInfo) []byte {
+	header := fmt.Sprintf("HTTP/1.1 %d %s\r\nContent-Length: %d\r\nContent-Type: %s\r\nConnection: close\r\n\r\n",
+		statusCode,
+		http.StatusText(statusCode),
+		fileInfo.Size(),
+		supportedFileTypes[filepath.Ext(fileInfo.Name())])
+	return []byte(header)
 }
 
 func writeErrorResponse(conn net.Conn, statusCode int) {

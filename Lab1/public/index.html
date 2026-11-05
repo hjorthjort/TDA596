@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Lab 1t</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <main>
+      <h1>File server test</h1>
+      <p class="intro">This page loads one stylesheet, two text files, and three images: JPG, JPEG, and GIF.</p>
+
+      <h2>Text files</h2>
+      <div class="grid">
+        <section class="card">
+          <h3><a href="/text/UTF-8-demo.txt">UTF-8-demo.txt</a></h3>
+          <iframe src="/text/UTF-8-demo.txt"></iframe>
+        </section>
+      </div>
+
+      <h2>Images</h2>
+      <p class="note">Photos in three file formats. Click to open full-size
+        image.</p>
+      <div class="grid">
+        <figure class="card">
+          <a href="/images/image.jpg">
+            <h3>images/image.jpg</h3>
+            <img src="/images/image.jpg" alt="Coastal photo in JPG format">
+            <code>image/jpeg</code>
+          </a>
+        </figure>
+        <figure class="card">
+          <a href="/images/image.jpeg">
+            <h3>images/image.jpeg</h3>
+            <img src="/images/image.jpeg" alt="Coastal photo in JPEG format">
+            <code>image/jpeg</code>
+          </a>
+        </figure>
+        <figure class="card">
+          <a href="/images/image.gif">
+            <h3>images/image.gif</h3>
+            <img src="/images/image.gif" alt="Coastal photo in GIF format">
+            <code>image/gif</code>
+          </a>
+        </figure>
+      </div>
+    </main>
+  </body>
+</html>
