@@ -52,8 +52,16 @@ func Serve(port string) error {
 			slog.Debug(fmt.Sprintf("Error accepting connection: %v", err))
 			continue
 		}
-		go asyncHandlerequest(conn)
+
+		// Only spawn a child process if there are available slots. Always
+		// release the semaphore after handling the request.
+		semaphore.Acquire()
+		go func() {
+			defer semaphore.Release() // panic-resistant cleanup
+			asyncHandlerequest(conn)
+		}()
 	}
+	return nil
 }
 
 func getListener(port string) (net.Listener, error) {
@@ -68,15 +76,12 @@ func getListener(port string) (net.Listener, error) {
 }
 
 // The main request handling loop.
-// In charge of acquiring and releasing locks,
 // reading and closing the connection.
 // Acquires and releases locks for each request.
 // Validates the request.
 // Performs the request and writes the response to the connection.
 func asyncHandlerequest(conn net.Conn) {
 	defer conn.Close() // TODO: Make a struct that releases the semaphore and closes the connection when it goes out of scope.
-	semaphore.Acquire()
-	defer semaphore.Release()
 	reader := bufio.NewReader(conn)
 	req, err := http.ReadRequest(reader)
 	if err != nil {
