@@ -31,12 +31,12 @@ func Serve(port string) {
 
 	// Lightweight *synchronous* loop to accept connections and handle them *asynchronously*.
 	for {
-		con, err := listener.Accept()
+		conn, err := listener.Accept()
 		if err != nil {
 			slog.Debug(fmt.Sprintf("Error accepting connection: %v", err))
 			continue
 		}
-		go asyncHandlerequest(con)
+		go asyncHandlerequest(conn)
 	}
 }
 
