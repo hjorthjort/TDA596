@@ -7,6 +7,8 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 var semaphore, _ = CreateSemaphore(10) // Limit to 10 concurrent connections
@@ -50,6 +52,7 @@ func getListener(port string) (net.Listener, error) {
 }
 
 func asyncHandlerequest(conn net.Conn) {
+	defer conn.Close()
 	semaphore.Acquire()
 	defer semaphore.Release()
 	reader := bufio.NewReader(conn)
@@ -90,7 +93,7 @@ func asyncHandlerequest(conn net.Conn) {
 }
 
 func handleGetRequest(conn net.Conn, req *http.Request) {
-	file, err := rootDir.Open(req.URL.Path)
+	file, err := rootDir.Open(strings.TrimPrefix(req.URL.Path, "/"))
 	if err != nil {
 		writeErrorResponse(conn, 404)
 		return
@@ -121,7 +124,7 @@ func createHttpResponseHeader(statusCode int, fileInfo os.FileInfo) []byte {
 		statusCode,
 		http.StatusText(statusCode),
 		fileInfo.Size(),
-		http.DetectContentType(make([]byte, 512)))
+		supportedFileTypes[filepath.Ext(fileInfo.Name())])
 	return []byte(header)
 }
 
