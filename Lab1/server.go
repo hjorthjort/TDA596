@@ -151,8 +151,14 @@ func handlePostRequest(conn net.Conn, req *http.Request) {
 		writeErrorResponse(conn, 500)
 		return
 	}
+	path := strings.TrimPrefix(req.URL.Path, "/")
+	if err := rootDir.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		slog.Debug(fmt.Sprintf("Error creating parent directories: %v", err))
+		writeErrorResponse(conn, 500)
+		return
+	}
 	// Atomically rename the temporary file to the requested file name.
-	err = rootDir.Rename(filepath.Base(tmpFile.Name()), strings.TrimPrefix(req.URL.Path, "/"))
+	err = rootDir.Rename(filepath.Base(tmpFile.Name()), path)
 	if err != nil {
 		slog.Debug(fmt.Sprintf("Error renaming tmp file: %v", err))
 		writeErrorResponse(conn, 500)
