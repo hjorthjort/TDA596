@@ -2,13 +2,16 @@ package main
 
 import (
 	"bufio"
+	"crypto/rand"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 var semaphore, _ = CreateSemaphore(10) // Limit to 10 concurrent connections
@@ -51,6 +54,12 @@ func getListener(port string) (net.Listener, error) {
 	return listener, nil
 }
 
+// The main request handling loop.
+// In charge of acquiring and releasing locks,
+// reading and closing the connection.
+// Acquires and releases locks for each request.
+// Validates the request.
+// Performs the request and writes the response to the connection.
 func asyncHandlerequest(conn net.Conn) {
 	defer conn.Close() // TODO: Make a struct that releases the semaphore and closes the connection when it goes out of scope.
 	semaphore.Acquire()
@@ -68,14 +77,6 @@ func asyncHandlerequest(conn net.Conn) {
 	slog.Debug(fmt.Sprintf("Received request: %s %s %s", req.Method,
 		req.URL.Path, req.Proto))
 
-	if _, ok := supportedMethods[req.Method]; !ok {
-		/*
-			... or "Not Implemented" (501) for valid HTTP methods other than GET
-			(or POST).
-		*/
-		writeErrorResponse(conn, 501)
-		return
-	}
 	if !isSupportedFileType(req.URL.Path) {
 		/*
 			if request for file is not supported file type, return 400 Bad
@@ -87,7 +88,10 @@ func asyncHandlerequest(conn net.Conn) {
 	switch req.Method {
 	case "GET":
 		handleGetRequest(conn, req)
+	case "POST":
+		handlePostRequest(conn, req)
 	default:
+		slog.Debug(fmt.Sprintf("Unsupported method: %s", req.Method))
 		writeErrorResponse(conn, 501)
 	}
 }
@@ -113,7 +117,8 @@ func handleGetRequest(conn net.Conn, req *http.Request) {
 		return
 	}
 
-	if _, err := conn.Write(createHttpResponseHeader(200, fileInfo)); err != nil {
+	contentType := supportedFileTypes[filepath.Ext(fileInfo.Name())]
+	if _, err := conn.Write(createHttpResponseHeader(200, fileInfo.Size(), contentType)); err != nil {
 		slog.Debug(fmt.Sprintf("Error writing response header: %v", err))
 		return
 	}
@@ -128,21 +133,80 @@ func handleGetRequest(conn net.Conn, req *http.Request) {
 	}
 }
 
-func createHttpResponseHeader(statusCode int, fileInfo os.FileInfo) []byte {
-	header := fmt.Sprintf("HTTP/1.1 %d %s\r\nContent-Length: %d\r\nContent-Type: %s\r\nConnection: close\r\n\r\n",
+func handlePostRequest(conn net.Conn, req *http.Request) {
+	// POST writes to a new temporary file, and on success, it renames the
+	// temporary file to the requested file name. If the requested file already
+	// exists, it should be overwritten. On Unix this is atomic.
+	tmpFile, err := createTmpFile()
+	if err != nil {
+		slog.Debug(fmt.Sprintf("Error creating tmp file: %v", err))
+		writeErrorResponse(conn, 500)
+		return
+	}
+	defer rootDir.Remove(filepath.Base(tmpFile.Name())) // Clean up the temporary file if necessary.
+	defer tmpFile.Close()
+	_, err = io.Copy(tmpFile, req.Body)
+	if err != nil {
+		slog.Debug(fmt.Sprintf("Error writing to tmp file: %v", err))
+		writeErrorResponse(conn, 500)
+		return
+	}
+	path := strings.TrimPrefix(req.URL.Path, "/")
+	if err := rootDir.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		slog.Debug(fmt.Sprintf("Error creating parent directories: %v", err))
+		writeErrorResponse(conn, 500)
+		return
+	}
+	// Atomically rename the temporary file to the requested file name.
+	err = rootDir.Rename(filepath.Base(tmpFile.Name()), path)
+	if err != nil {
+		slog.Debug(fmt.Sprintf("Error renaming tmp file: %v", err))
+		writeErrorResponse(conn, 500)
+		return
+	}
+	// The upload succeeded. The response has no body.
+	if _, err := conn.Write(createHttpResponseHeader(200, 0, "")); err != nil {
+		slog.Debug(fmt.Sprintf("Error writing response header: %v", err))
+	}
+}
+
+func createHttpResponseHeader(statusCode int, contentLength int64, contentType string) []byte {
+	header := fmt.Sprintf(
+		"HTTP/1.1 %d %s\r\n"+
+			"Date: %s\r\n"+
+			"Content-Length: %d\r\n"+
+			"Connection: close\r\n",
 		statusCode,
 		http.StatusText(statusCode),
-		fileInfo.Size(),
-		supportedFileTypes[filepath.Ext(fileInfo.Name())])
-	return []byte(header)
+		time.Now().UTC().Format(http.TimeFormat),
+		contentLength,
+	)
+	if contentType != "" {
+		header += "Content-Type: " + contentType + "\r\n"
+	}
+	// A blank line marks the end of the headers.
+	return []byte(header + "\r\n")
 }
 
 func writeErrorResponse(conn net.Conn, statusCode int) {
 	slog.Debug(fmt.Sprintf("Error response: %d", statusCode))
-	if response, ok := errorResponses[statusCode]; ok {
-		if _, err := conn.Write(response); err != nil {
-			slog.Debug(fmt.Sprintf("Error writing %d response: %v", statusCode,
-				err))
-		}
+	if _, err := conn.Write(createHttpResponseHeader(statusCode, 0, "")); err != nil {
+		slog.Debug(fmt.Sprintf("Error writing %d response: %v", statusCode, err))
 	}
+}
+
+func createTmpFile() (*os.File, error) {
+	// rand is "crypto/rand"
+	// rand uses 128 bits of randomness. Collisions are essentially impossible.
+	// A collision indicates and active attack, and it would be acceptable to
+	// fail the request and return a 500 Internal Server Error in that case.
+	name := ".upload-" + rand.Text() + ".tmp"
+	tmp, err := rootDir.OpenFile(
+		name,
+		// write only | create new file | fail if file exists
+		os.O_WRONLY|os.O_CREATE|os.O_EXCL,
+		// chmod 600, is owner read/write only: -rw-------
+		0o600,
+	)
+	return tmp, err
 }

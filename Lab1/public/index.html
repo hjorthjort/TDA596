@@ -9,13 +9,19 @@
   <body>
     <main>
       <h1>File server test</h1>
-      <p class="intro">This page loads one stylesheet, two text files, and three images: JPG, JPEG, and GIF.</p>
+      <noscript>Enable JavaScript to submit raw text and image files.</noscript>
 
       <h2>Text files</h2>
       <div class="grid">
         <section class="card">
           <h3><a href="/text/UTF-8-demo.txt">UTF-8-demo.txt</a></h3>
           <iframe src="/text/UTF-8-demo.txt"></iframe>
+          <form action="/text/UTF-8-demo.txt" method="post">
+            <label>Path under public/ <input name="filename" value="text/UTF-8-demo.txt" required></label>
+            <label>New text <textarea name="text" rows="5"></textarea></label>
+            <button type="submit">Submit</button>
+            <output aria-live="polite"></output>
+          </form>
         </section>
       </div>
 
@@ -29,6 +35,11 @@
             <img src="/images/image.jpg" alt="Coastal photo in JPG format">
             <code>image/jpeg</code>
           </a>
+          <form action="/images/image.jpg" method="post">
+            <label>Replace JPG <input name="file" type="file" accept=".jpg,.jpeg,image/jpeg" required></label>
+            <button type="submit">Submit</button>
+            <output aria-live="polite"></output>
+          </form>
         </figure>
         <figure class="card">
           <a href="/images/image.jpeg">
@@ -36,6 +47,11 @@
             <img src="/images/image.jpeg" alt="Coastal photo in JPEG format">
             <code>image/jpeg</code>
           </a>
+          <form action="/images/image.jpeg" method="post">
+            <label>Replace JPEG <input name="file" type="file" accept=".jpg,.jpeg,image/jpeg" required></label>
+            <button type="submit">Submit</button>
+            <output aria-live="polite"></output>
+          </form>
         </figure>
         <figure class="card">
           <a href="/images/image.gif">
@@ -43,8 +59,26 @@
             <img src="/images/image.gif" alt="Coastal photo in GIF format">
             <code>image/gif</code>
           </a>
+          <form action="/images/image.gif" method="post">
+            <label>Replace GIF <input name="file" type="file" accept=".gif,image/gif" required></label>
+            <button type="submit">Submit</button>
+            <output aria-live="polite"></output>
+          </form>
         </figure>
       </div>
     </main>
+    <script>
+      for (const form of document.querySelectorAll("form")) {
+        form.onsubmit = async event => {
+          event.preventDefault();
+          const fields = form.elements;
+          const response = await fetch(fields.filename?.value || form.action, {
+            method: "POST",
+            body: fields.file ? fields.file.files[0] : fields.text.value
+          });
+          form.querySelector("output").textContent = `HTTP ${response.status}`;
+        };
+      }
+    </script>
   </body>
 </html>
