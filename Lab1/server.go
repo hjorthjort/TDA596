@@ -107,6 +107,11 @@ func handleGetRequest(conn net.Conn, req *http.Request) {
 		writeErrorResponse(conn, 404)
 		return
 	}
+	if fileInfo.IsDir() {
+		slog.Debug(fmt.Sprintf("Requested path is a directory: %s", req.URL.Path))
+		writeErrorResponse(conn, 404)
+		return
+	}
 
 	if _, err := conn.Write(createHttpResponseHeader(200, fileInfo)); err != nil {
 		slog.Debug(fmt.Sprintf("Error writing response header: %v", err))
