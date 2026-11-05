@@ -154,14 +154,9 @@ func handleGetRequest(conn net.Conn, req *http.Request) {
 		slog.Debug(fmt.Sprintf("Error writing response header: %v", err))
 		return
 	}
-	// TODO(hj): Buffer the file reading/writing?
-	fileContent := make([]byte, fileInfo.Size())
-	_, err = file.Read(fileContent)
-	if err != nil {
-		slog.Debug(fmt.Sprintf("Error reading file content: %v", err))
-	}
-	if _, err := conn.Write(fileContent); err != nil {
-		slog.Debug(fmt.Sprintf("Error writing response body: %v", err))
+	if _, err := io.Copy(conn, file); err != nil {
+		slog.Debug(fmt.Sprintf("Error reading file or writing response body: %v",
+			err))
 	}
 }
 
