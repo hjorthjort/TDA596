@@ -61,7 +61,6 @@ func Serve(port string) error {
 			asyncHandlerequest(conn)
 		}()
 	}
-	return nil
 }
 
 func getListener(port string) (net.Listener, error) {
