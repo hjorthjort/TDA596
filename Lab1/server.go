@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"crypto/rand"
 	"fmt"
 	"log/slog"
 	"net"
@@ -128,6 +129,17 @@ func handlePostRequest(conn net.Conn, req *http.Request) {
 	// POST writes to a new temporary file, and on success, it renames the
 	// temporary file to the requested file name. If the requested file already
 	// exists, it should be overwritten. On Unix this is atomic.
+
+	// Create tmp file
+
+	tmpFile, err := createTmpFile()
+	if err != nil {
+		slog.Debug(fmt.Sprintf("Error creating tmp file: %v", err))
+		writeErrorResponse(conn, 500)
+		return
+	}
+	defer tmpFile.Close()
+
 }
 
 func createHttpResponseHeader(statusCode int, fileInfo os.FileInfo) []byte {
@@ -147,4 +159,20 @@ func writeErrorResponse(conn net.Conn, statusCode int) {
 				err))
 		}
 	}
+}
+
+func createTmpFile() (*os.File, error) {
+	// rand is "crypto/rand"
+	// rand uses 128 bits of randomness. Collisions are essentially impossible.
+	// A collision indicates and active attack, and it would be acceptable to
+	// fail the request and return a 500 Internal Server Error in that case.
+	name := ".upload-" + rand.Text() + ".tmp"
+	tmp, err := rootDir.OpenFile(
+		name,
+		// write only | create new file | fail if file exists
+		os.O_WRONLY|os.O_CREATE|os.O_EXCL,
+		// chmod 600, is owner read/write only: -rw-------
+		0o600,
+	)
+	return tmp, err
 }
