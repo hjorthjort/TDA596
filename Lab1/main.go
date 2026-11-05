@@ -12,8 +12,5 @@ func main() {
 	}
 	// Accept port number from command line arguments
 	port := os.Args[1]
-	err := Serve(port)
-	if err != nil {
-		os.Exit(19)
-	}
+	Serve(port)
 }

@@ -6,14 +6,11 @@ import (
 	"net"
 )
 
-func Serve(port string) error {
-	// Open connection on specified port.
-	listener, err := net.Listen("tcp", ":"+port)
+func Serve(port string) {
+	listener, err := getListener(port)
 	if err != nil {
-		slog.Debug(fmt.Sprintf("Error starting server: %v", err))
-		return err
+		return
 	}
-	slog.Debug(fmt.Sprintf("Listening on %s\n", listener.Addr().String()))
 	// Close connection gracefully on application exit.
 	defer func(listener net.Listener) {
 		err := listener.Close()
