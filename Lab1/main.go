@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"runtime"
@@ -17,5 +18,8 @@ func main() {
 	}
 	// Accept port number from command line arguments
 	port := os.Args[1]
-	Serve(port)
+	if err := Serve(port); err != nil {
+		slog.Debug(fmt.Sprintf("Error starting server: %v", err))
+		os.Exit(1)
+	}
 }

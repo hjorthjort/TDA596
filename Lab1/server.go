@@ -16,13 +16,26 @@ import (
 
 var semaphore, _ = CreateSemaphore(10) // Limit to 10 concurrent connections
 
-var wwwDir, _ = os.Getwd()                       // Default document root
-var rootDir, _ = os.OpenRoot(wwwDir + "/public") // Traversal resistant path
+var wwwDir string    // Default document root
+var rootDir *os.Root // Traversal resistant path
 
-func Serve(port string) {
+func Serve(port string) error {
+	var err error
+	wwwDir, err = os.Getwd()
+	if err != nil {
+		slog.Debug(fmt.Sprintf("Error getting current working directory: %v", err))
+		return err
+	}
+	rootDir, err = os.OpenRoot(wwwDir + "/public")
+	if err != nil {
+		slog.Debug(fmt.Sprintf("Error opening root directory: %v", err))
+		return err
+	}
+	defer rootDir.Close()
+
 	listener, err := getListener(port)
 	if err != nil {
-		return
+		return err
 	}
 	// Close connection gracefully on application exit.
 	defer func(listener net.Listener) {
@@ -71,17 +84,29 @@ func asyncHandlerequest(conn net.Conn) {
 			An invalid request from the client should be answered with an
 			appropriate error code, i.e. "Bad Request" (400) ...
 		*/
+		slog.Debug(fmt.Sprintf("Error reading request: %v", err))
 		writeErrorResponse(conn, 400)
 		return
 	}
 	slog.Debug(fmt.Sprintf("Received request: %s %s %s", req.Method,
 		req.URL.Path, req.Proto))
 
+	// We do this check before checking file type since 501 for unimplemented
+	// methods should take priority over 400 for unsupported file types.
+	if req.Method != "GET" && req.Method != "POST" {
+		/*
+			if request method is not GET or POST, return 501 Not Implemented
+		*/
+		slog.Debug(fmt.Sprintf("Unsupported method: %s", req.Method))
+		writeErrorResponse(conn, 501)
+		return
+	}
 	if !isSupportedFileType(req.URL.Path) {
 		/*
 			if request for file is not supported file type, return 400 Bad
 			Request
 		*/
+		slog.Debug(fmt.Sprintf("Unsupported file type: %s", req.URL.Path))
 		writeErrorResponse(conn, 400)
 		return
 	}
@@ -90,9 +115,6 @@ func asyncHandlerequest(conn net.Conn) {
 		handleGetRequest(conn, req)
 	case "POST":
 		handlePostRequest(conn, req)
-	default:
-		slog.Debug(fmt.Sprintf("Unsupported method: %s", req.Method))
-		writeErrorResponse(conn, 501)
 	}
 }
 
@@ -143,8 +165,8 @@ func handlePostRequest(conn net.Conn, req *http.Request) {
 		writeErrorResponse(conn, 500)
 		return
 	}
-	defer rootDir.Remove(filepath.Base(tmpFile.Name())) // Clean up the temporary file if necessary.
 	defer tmpFile.Close()
+	defer rootDir.Remove(filepath.Base(tmpFile.Name())) // Clean up the temporary file if necessary.
 	_, err = io.Copy(tmpFile, req.Body)
 	if err != nil {
 		slog.Debug(fmt.Sprintf("Error writing to tmp file: %v", err))
