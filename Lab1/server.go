@@ -52,7 +52,7 @@ func getListener(port string) (net.Listener, error) {
 }
 
 func asyncHandlerequest(conn net.Conn) {
-	defer conn.Close()
+	defer conn.Close() // TODO: Make a struct that releases the semaphore and closes the connection when it goes out of scope.
 	semaphore.Acquire()
 	defer semaphore.Release()
 	reader := bufio.NewReader(conn)
