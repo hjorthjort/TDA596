@@ -61,6 +61,7 @@ func Serve(port string) error {
 			}
 			continue
 		}
+		conn.SetDeadline(time.Now().Add(5 * time.Second)) // Set a 5 second timeout for the connection.
 
 		go func() {
 			defer semaphore.Release() // panic-resistant cleanup
