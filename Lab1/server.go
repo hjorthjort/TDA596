@@ -143,7 +143,7 @@ func handlePostRequest(conn net.Conn, req *http.Request) {
 		writeErrorResponse(conn, 500)
 		return
 	}
-	defer os.Remove(tmpFile.Name()) // Clean up the temporary file if necessary.
+	defer rootDir.Remove(filepath.Base(tmpFile.Name())) // Clean up the temporary file if necessary.
 	defer tmpFile.Close()
 	_, err = io.Copy(tmpFile, req.Body)
 	if err != nil {
