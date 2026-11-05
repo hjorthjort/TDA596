@@ -54,6 +54,12 @@ func getListener(port string) (net.Listener, error) {
 	return listener, nil
 }
 
+// The main request handling loop.
+// In charge of acquiring and releasing locks,
+// reading and closing the connection.
+// Acquires and releases locks for each request.
+// Validates the request.
+// Performs the request and writes the response to the connection.
 func asyncHandlerequest(conn net.Conn) {
 	defer conn.Close() // TODO: Make a struct that releases the semaphore and closes the connection when it goes out of scope.
 	semaphore.Acquire()
