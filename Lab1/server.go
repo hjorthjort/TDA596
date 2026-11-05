@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 )
 
 var semaphore, _ = CreateSemaphore(10) // Limit to 10 concurrent connections
@@ -46,5 +48,43 @@ func getListener(port string) (net.Listener, error) {
 func asyncHandlerequest(conn net.Conn) {
 	semaphore.Acquire()
 	defer semaphore.Release()
+	reader := bufio.NewReader(conn)
+	req, err := http.ReadRequest(reader)
+	if err != nil {
+		/*
+			An invalid request from the client should be answered with an
+			appropriate error code, i.e. "Bad Request" (400) ...
+		*/
+		writeErrorResponse(conn, 400)
+		return
+	}
+	slog.Debug(fmt.Sprintf("Received request: %s %s %s", req.Method,
+		req.URL.Path, req.Proto))
 
+	if _, ok := supportedMethods[req.Method]; !ok {
+		/*
+			... or "Not Implemented" (501) for valid HTTP methods other than GET
+			(or POST).
+		*/
+		writeErrorResponse(conn, 501)
+		return
+	}
+	if !isSupportedFileType(req.URL.Path) {
+		/*
+			if request for file is not supported file type, return 400 Bad
+			Request
+		*/
+		writeErrorResponse(conn, 400)
+		return
+	}
+}
+
+func writeErrorResponse(conn net.Conn, statusCode int) {
+	slog.Debug(fmt.Sprintf("Error response: %d", statusCode))
+	if response, ok := errorResponses[statusCode]; ok {
+		if _, err := conn.Write(response); err != nil {
+			slog.Debug(fmt.Sprintf("Error writing %d response: %v", statusCode,
+				err))
+		}
+	}
 }
