@@ -68,14 +68,6 @@ func asyncHandlerequest(conn net.Conn) {
 	slog.Debug(fmt.Sprintf("Received request: %s %s %s", req.Method,
 		req.URL.Path, req.Proto))
 
-	if _, ok := supportedMethods[req.Method]; !ok {
-		/*
-			... or "Not Implemented" (501) for valid HTTP methods other than GET
-			(or POST).
-		*/
-		writeErrorResponse(conn, 501)
-		return
-	}
 	if !isSupportedFileType(req.URL.Path) {
 		/*
 			if request for file is not supported file type, return 400 Bad
@@ -87,7 +79,10 @@ func asyncHandlerequest(conn net.Conn) {
 	switch req.Method {
 	case "GET":
 		handleGetRequest(conn, req)
+	case "POST":
+		handlePostRequest(conn, req)
 	default:
+		slog.Debug(fmt.Sprintf("Unsupported method: %s", req.Method))
 		writeErrorResponse(conn, 501)
 	}
 }
