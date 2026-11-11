@@ -1,5 +1,7 @@
 package main
 
+type Method = string
+
 var supportedFileTypes = map[string]string{
 	".html": "text/html",
 	".txt":  "text/plain",
@@ -9,6 +11,13 @@ var supportedFileTypes = map[string]string{
 	".css":  "text/css",
 }
 
+var supportedPubSubPaths = map[string]Method{
+	"/subscribe":   "POST",
+	"/unsubscribe": "POST",
+	"/publish":     "POST",
+	"/events":      "GET",
+}
+
 func isSupportedFileType(path string) bool {
 	for ext := range supportedFileTypes {
 		if len(path) >= len(ext) && path[len(path)-len(ext):] == ext {
@@ -16,4 +25,15 @@ func isSupportedFileType(path string) bool {
 		}
 	}
 	return false
+}
+
+var isSupportedPubSubPath = func(path string, method Method) bool {
+	if expectedMethod, ok := supportedPubSubPaths[path]; ok {
+		return expectedMethod == method
+	}
+	return false
+}
+
+func isSupportedPath(path string, method Method) bool {
+	return isSupportedFileType(path) || isSupportedPubSubPath(path, method)
 }

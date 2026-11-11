@@ -113,12 +113,16 @@ func asyncHandleRequest(conn net.Conn) {
 		writeErrorResponse(conn, 501)
 		return
 	}
-	if !isSupportedFileType(req.URL.Path) {
+	if !isSupportedPath(req.URL.Path, req.Method) {
 		/*
 			if request for file is not supported file type, return 400 Bad
 			Request
 		*/
-		slog.Debug(fmt.Sprintf("Unsupported file type: %s", req.URL.Path))
+		/*
+			Or it is not a valid pub/sub path.
+		*/
+		slog.Debug(fmt.Sprintf("Method: %s - Unsupported path: %s",
+			req.URL.Path, req.Method))
 		writeErrorResponse(conn, 400)
 		return
 	}
