@@ -65,7 +65,7 @@ func Serve(port string) error {
 
 		go func() {
 			defer semaphore.Release() // panic-resistant cleanup
-			asyncHandlerequest(conn)
+			asyncHandleRequest(conn)
 		}()
 	}
 }
@@ -86,7 +86,7 @@ func getListener(port string) (net.Listener, error) {
 // Acquires and releases locks for each request.
 // Validates the request.
 // Performs the request and writes the response to the connection.
-func asyncHandlerequest(conn net.Conn) {
+func asyncHandleRequest(conn net.Conn) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 	req, err := http.ReadRequest(reader)
