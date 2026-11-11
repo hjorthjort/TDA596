@@ -9,8 +9,40 @@
   </head>
   <body>
     <main>
-      <h1>File server test</h1>
-      <noscript>Enable JavaScript to submit raw text and image files.</noscript>
+      <h1>File server and pub-sub tests</h1>
+      <noscript>Enable JavaScript to submit files and pub-sub requests.</noscript>
+
+      <h2>Publish–subscribe</h2>
+      <p class="note">Subscribe to get a subscriber ID, then read messages in a separate tab at
+        <code>/events?topic=X&amp;id=N</code>. Use the same topic when publishing or unsubscribing.</p>
+      <div class="grid">
+        <section class="card">
+          <h3>Subscribe</h3>
+          <form action="/subscribe" method="post" data-pubsub>
+            <label>Topic <input name="topic" value="test" required></label>
+            <button type="submit">Subscribe</button>
+            <output aria-live="polite"></output>
+          </form>
+        </section>
+        <section class="card">
+          <h3>Unsubscribe</h3>
+          <form action="/unsubscribe" method="post" data-pubsub>
+            <label>Topic <input name="topic" value="test" required></label>
+            <label>Subscriber ID <input name="id" type="number" step="1" required></label>
+            <button type="submit">Unsubscribe</button>
+            <output aria-live="polite"></output>
+          </form>
+        </section>
+        <section class="card">
+          <h3>Publish</h3>
+          <form action="/publish" method="post" data-pubsub>
+            <label>Topic <input name="topic" value="test" required></label>
+            <label>Message <textarea name="message" rows="5">Hello subscribers!</textarea></label>
+            <button type="submit">Publish</button>
+            <output aria-live="polite"></output>
+          </form>
+        </section>
+      </div>
 
       <h2>Text files</h2>
       <div class="grid">
@@ -69,7 +101,33 @@
       </div>
     </main>
     <script>
-      for (const form of document.querySelectorAll("form")) {
+      for (const form of document.querySelectorAll("form[data-pubsub]")) {
+        form.onsubmit = async event => {
+          event.preventDefault();
+          const fields = form.elements;
+          const url = new URL(form.action);
+          url.searchParams.set("topic", fields.topic.value);
+          if (fields.id) url.searchParams.set("id", fields.id.value);
+          const output = form.querySelector("output");
+          const button = form.querySelector("button");
+          button.disabled = true;
+          output.textContent = "Sending…";
+          try {
+            const response = await fetch(url, {
+              method: "POST",
+              body: fields.message ? fields.message.value : undefined
+            });
+            const body = await response.text();
+            output.textContent = `HTTP ${response.status}${body ? `: ${body}` : ""}`;
+          } catch (error) {
+            output.textContent = `Request failed: ${error.message}`;
+          } finally {
+            button.disabled = false;
+          }
+        };
+      }
+
+      for (const form of document.querySelectorAll("form:not([data-pubsub])")) {
         form.onsubmit = async event => {
           event.preventDefault();
           const fields = form.elements;
