@@ -60,9 +60,10 @@ func Serve(port string) error {
 				return nil
 			}
 			continue
+		} // Set a 30 second's timeout for the connection.
+		if err = conn.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
+			return err
 		}
-		conn.SetDeadline(time.Now().Add(5 * time.Second)) // Set a 5 second timeout for the connection.
-
 		go func() {
 			defer semaphore.Release() // panic-resistant cleanup
 			asyncHandleRequest(conn)
