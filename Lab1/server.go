@@ -113,7 +113,12 @@ func asyncHandleRequest(conn net.Conn) {
 		writeErrorResponse(conn, 501)
 		return
 	}
-	if !isSupportedPath(req.URL.Path, req.Method) {
+	if _, exists := supportedPubSubPaths[req.URL.Path]; exists {
+		// Is it pub/sub?
+		handleWithPubSubBroker(conn, req)
+		return
+	} else if !isSupportedFileType(req.URL.Path) {
+		// Is it a request on a file
 		/*
 			if request for file is not supported file type, return 400 Bad
 			Request
@@ -122,7 +127,7 @@ func asyncHandleRequest(conn net.Conn) {
 			Or it is not a valid pub/sub path.
 		*/
 		slog.Debug(fmt.Sprintf("Method: %s - Unsupported path: %s",
-			req.URL.Path, req.Method))
+			req.Method, req.URL.Path))
 		writeErrorResponse(conn, 400)
 		return
 	}

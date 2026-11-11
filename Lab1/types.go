@@ -37,3 +37,21 @@ var isSupportedPubSubPath = func(path string, method Method) bool {
 func isSupportedPath(path string, method Method) bool {
 	return isSupportedFileType(path) || isSupportedPubSubPath(path, method)
 }
+
+type BrokerState struct {
+	mutex  Semaphore
+	queues map[string]map[int][]chan Message
+}
+
+type Message struct {
+	sequenceNumber int
+	content        []byte
+}
+
+func CreateBrokerState() (BrokerState, error) {
+	sem, err := CreateSemaphore(1)
+	if err != nil {
+		return BrokerState{}, err
+	}
+	return BrokerState{mutex: sem}, nil
+}
