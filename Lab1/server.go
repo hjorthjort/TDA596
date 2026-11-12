@@ -161,7 +161,8 @@ func handleGetRequest(conn net.Conn, req *http.Request) {
 	}
 
 	contentType := supportedFileTypes[filepath.Ext(fileInfo.Name())]
-	if _, err := conn.Write(createHttpResponseHeader(200, fileInfo.Size(), contentType)); err != nil {
+	if _, err := conn.Write(CreateHttpResponseHeader(200, int(fileInfo.Size()),
+		contentType)); err != nil {
 		slog.Debug(fmt.Sprintf("Error writing response header: %v", err))
 		return
 	}
@@ -203,12 +204,13 @@ func handlePostRequest(conn net.Conn, req *http.Request) {
 		return
 	}
 	// The upload succeeded. The response has no body.
-	if _, err := conn.Write(createHttpResponseHeader(200, 0, "")); err != nil {
+	if _, err := conn.Write(CreateHttpResponseHeader(200, 0, "")); err != nil {
 		slog.Debug(fmt.Sprintf("Error writing response header: %v", err))
 	}
 }
 
-func createHttpResponseHeader(statusCode int, contentLength int64, contentType string) []byte {
+func CreateHttpResponseHeader(statusCode int, contentLength int,
+	contentType string) []byte {
 	header := fmt.Sprintf(
 		"HTTP/1.1 %d %s\r\n"+
 			"Date: %s\r\n"+
@@ -228,7 +230,7 @@ func createHttpResponseHeader(statusCode int, contentLength int64, contentType s
 
 func writeErrorResponse(conn net.Conn, statusCode int) {
 	slog.Debug(fmt.Sprintf("Error response: %d", statusCode))
-	if _, err := conn.Write(createHttpResponseHeader(statusCode, 0, "")); err != nil {
+	if _, err := conn.Write(CreateHttpResponseHeader(statusCode, 0, "")); err != nil {
 		slog.Debug(fmt.Sprintf("Error writing %d response: %v", statusCode, err))
 	}
 }
