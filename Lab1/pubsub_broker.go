@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 var brokerState, _ = CreateBrokerState() // Global broker state for pub/sub
 
 // Debug printing
+// TODO(hj): Delete
 func (b BrokerState) brokerStateToString() string {
 	b.mutex.Acquire()
 	defer b.mutex.Release()
@@ -31,8 +33,9 @@ func CreateBrokerState() (BrokerState, error) {
 }
 
 // CreateSubscriptionChannel Each subscription buffers up to 100 messages.
+// TODO(hj): Make this larger. Small for now to test dropping messages.
 func CreateSubscriptionChannel() SubscriptionChannel {
-	return make(SubscriptionChannel, 100)
+	return make(SubscriptionChannel, 3)
 }
 
 // AddSubscriberSafe adds a new subscriber to the topic in a thread-safe manner.
@@ -47,6 +50,23 @@ func (b *BrokerState) AddSubscriberSafe(topic string) (subscriptionId int) {
 	subscriptionId = len(b.queues[topic])
 	b.queues[topic] = append(b.queues[topic], CreateSubscriptionChannel())
 	return subscriptionId
+}
+
+func (b *BrokerState) PublishSafe(topic string, message []byte) {
+	b.mutex.Acquire()
+	defer b.mutex.Release()
+
+	if subscribers, exists := b.queues[topic]; exists {
+		for _, subscriber := range subscribers {
+			select {
+			case subscriber <- Message{content: message}:
+				// Message sent successfully
+			default:
+				// Subscriber's channel is full, drop the message for this subscriber
+				slog.Debug(fmt.Sprintf("Dropping message for subscriber on topic: %s", topic))
+			}
+		}
+	}
 }
 
 // Implementation notes: every subscriber only receives the events that
@@ -103,8 +123,14 @@ func handleUnsubscribe(conn net.Conn, req *http.Request) {
 }
 
 func handlePublish(conn net.Conn, req *http.Request) {
-	slog.Debug(fmt.Sprintf("Handling publish request: %s %s %s", req.Method,
-		req.URL.Path, req.Proto))
+	topic := req.URL.Query().Get("topic")
+	// Read request body
+	message, err := io.ReadAll(req.Body)
+	if err != nil {
+		message = []byte{} // Empty body = empty message. No reason not to allow this.
+	}
+	brokerState.PublishSafe(topic, message)
+	conn.Write(CreateHttpResponseHeader(200, 0, ""))
 }
 
 func handleEvents(conn net.Conn, req *http.Request) {
