@@ -19,7 +19,7 @@
         <section class="card">
           <h3>Subscribe</h3>
           <form action="/subscribe" method="post" data-pubsub>
-            <label>Topic <input name="topic" value="test" required></label>
+            <label>Topic <input name="topic" value="test"></label>
             <button type="submit">Subscribe</button>
             <output aria-live="polite"></output>
           </form>
@@ -27,7 +27,7 @@
         <section class="card">
           <h3>Unsubscribe</h3>
           <form action="/unsubscribe" method="post" data-pubsub>
-            <label>Topic <input name="topic" value="test" required></label>
+            <label>Topic <input name="topic" value="test"></label>
             <label>Subscriber ID <input name="id" type="number" step="1" required></label>
             <button type="submit">Unsubscribe</button>
             <output aria-live="polite"></output>
@@ -36,7 +36,7 @@
         <section class="card">
           <h3>Publish</h3>
           <form action="/publish" method="post" data-pubsub>
-            <label>Topic <input name="topic" value="test" required></label>
+            <label>Topic <input name="topic" value="test"></label>
             <label>Message <textarea name="message" rows="5">Hello subscribers!</textarea></label>
             <button type="submit">Publish</button>
             <output aria-live="polite"></output>
