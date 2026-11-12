@@ -29,8 +29,8 @@ func CreateBrokerState() (BrokerState, error) {
 	if err != nil {
 		return BrokerState{}, err
 	}
-	return BrokerState{mutex: sem,
-		queues: make(map[string][]SubscriptionChannel)}, nil
+	return BrokerState{mutex: sem, nextId: 0,
+		queues: make(map[string]map[int]SubscriptionChannel)}, nil
 }
 
 // CreateSubscriptionChannel Each subscription buffers up to 100 messages.
@@ -41,18 +41,39 @@ func CreateSubscriptionChannel() SubscriptionChannel {
 
 // AddSubscriberSafe adds a new subscriber to the topic in a thread-safe manner.
 // TODO(hj): Guard from becoming too large, instead of failing with OOM.
+// TODO(hj): Handle nonce wraparound. For now we are okay with max 2^31-1.
 // TODO(hj): Improvement: Random subscripber IDs, maybe BigInt or strings to of
-// at least 128 byte randomness. For now, just use the index in the slice.
+// at least 128 byte randomness. For now, just use a nonce.
 func (b *BrokerState) AddSubscriberSafe(topic string) (subscriptionId int) {
 	b.mutex.Acquire()
 	defer b.mutex.Release()
 
 	if _, exists := b.queues[topic]; !exists {
-		b.queues[topic] = make([]SubscriptionChannel, 0)
+		b.queues[topic] = make(map[int]SubscriptionChannel)
 	}
-	subscriptionId = len(b.queues[topic])
-	b.queues[topic] = append(b.queues[topic], CreateSubscriptionChannel())
+	id := b.nextId
+	b.nextId++
+	subscriptionId = id
+	b.queues[topic][subscriptionId] = CreateSubscriptionChannel()
 	return subscriptionId
+}
+
+func (b *BrokerState) UnsubscribeSafe(topic string, subscriptionId int) error {
+	b.mutex.Acquire()
+	defer b.mutex.Release()
+
+	if subscribers, exists := b.queues[topic]; !exists {
+		return fmt.Errorf("no subscribers for topic: %s", topic)
+	} else {
+		if _, exists := subscribers[subscriptionId]; !exists {
+			return fmt.Errorf("invalid subscription ID: %d for topic: %s",
+				subscriptionId, topic)
+		} else {
+			// Remove the subscriber by setting it to nil
+			delete(subscribers, subscriptionId)
+			return nil
+		}
+	}
 }
 
 // Implementation notes: every subscriber only receives the events that
@@ -70,13 +91,15 @@ func (b *BrokerState) PublishSafe(topic string, message Message) error {
 	if subscribers, exists := b.queues[topic]; !exists {
 		return fmt.Errorf("no subscribers for topic: %s", topic)
 	} else {
-		for _, subscriber := range subscribers {
+		for id, subscriber := range subscribers {
 			select {
 			case subscriber <- message:
 				// Message sent successfully
 			default:
 				// Subscriber's channel is full, drop the message for this subscriber
-				slog.Debug(fmt.Sprintf("Dropping message for subscriber on topic: %s", topic))
+				slog.Debug(fmt.Sprintf(
+					"Dropping message for subscriber %d on topic: %s", id,
+					topic))
 			}
 		}
 	}
@@ -141,6 +164,20 @@ func handleSubscribe(conn net.Conn, req *http.Request) {
 func handleUnsubscribe(conn net.Conn, req *http.Request) {
 	slog.Debug(fmt.Sprintf("Handling unsubscribe request: %s %s %s", req.Method,
 		req.URL.Path, req.Proto))
+	topic := req.URL.Query().Get("topic")
+	subscriptionId, err := strconv.Atoi(req.URL.Query().Get("id"))
+	if err != nil || subscriptionId < 0 || topic == "" {
+		slog.Debug("Missing or invalid topic or ID parameter in unsubscribe request")
+		writeErrorResponse(conn, 400)
+		return
+	}
+	err = brokerState.UnsubscribeSafe(topic, subscriptionId)
+	if err != nil {
+		slog.Debug(fmt.Sprintf("Error unsubscribing: %v", err))
+		writeErrorResponse(conn, 404)
+		return
+	}
+	conn.Write(CreateHttpResponseHeader(200, 0, ""))
 }
 
 func handlePublish(conn net.Conn, req *http.Request) {
@@ -170,7 +207,7 @@ func handleEvents(conn net.Conn, req *http.Request) {
 	slog.Debug(fmt.Sprintf("Handling events request: %s %s %s", req.Method,
 		req.URL.Path, req.Proto))
 	topic := req.URL.Query().Get("topic")
-	id, err := strconv.ParseInt(req.URL.Query().Get("id"), 10, 64)
+	id, err := strconv.Atoi(req.URL.Query().Get("id"))
 	if err != nil || id < 0 || topic == "" {
 		slog.Debug("Missing or invalid topic or ID parameter in events request")
 		writeErrorResponse(conn, 400)

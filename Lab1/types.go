@@ -42,5 +42,6 @@ type Message []byte
 type SubscriptionChannel = chan Message
 type BrokerState struct {
 	mutex  Semaphore
-	queues map[string][]SubscriptionChannel
+	nextId int // Unique nonce, allows up to total of 2^31-1 subscribers total
+	queues map[string]map[int]SubscriptionChannel
 }
