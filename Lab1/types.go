@@ -38,13 +38,9 @@ func isSupportedPath(path string, method Method) bool {
 	return isSupportedFileType(path) || isSupportedPubSubPath(path, method)
 }
 
+type Message []byte
 type SubscriptionChannel = chan Message
 type BrokerState struct {
 	mutex  Semaphore
 	queues map[string][]SubscriptionChannel
-}
-
-type Message struct {
-	sequenceNumber int
-	content        []byte
 }
