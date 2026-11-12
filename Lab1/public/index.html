@@ -13,8 +13,8 @@
       <noscript>Enable JavaScript to submit files and pub-sub requests.</noscript>
 
       <h2>Publish–subscribe</h2>
-      <p class="note">Subscribe to get a subscriber ID, then read messages in a separate tab at
-        <code>/events?topic=X&amp;id=N</code>. Use the same topic when publishing or unsubscribing.</p>
+      <p class="note">Subscribe to get a subscriber ID, then use Get messages to read messages in a separate tab.
+        Use the same topic when publishing or unsubscribing.</p>
       <div class="grid">
         <section class="card">
           <h3>Subscribe</h3>
@@ -43,6 +43,15 @@
           </form>
         </section>
       </div>
+
+      <section class="card">
+        <h3>Get messages</h3>
+        <form action="/events" method="get" target="_blank" rel="noopener" data-events>
+          <label>Topic <input name="topic" value="test"></label>
+          <label>Subscriber ID <input name="id" type="number" step="1"></label>
+          <button type="submit">Get messages in a new tab</button>
+        </form>
+      </section>
 
       <h2>Text files</h2>
       <div class="grid">
@@ -123,7 +132,7 @@
         };
       }
 
-      for (const form of document.querySelectorAll("form:not([data-pubsub])")) {
+      for (const form of document.querySelectorAll("form:not([data-pubsub]):not([data-events])")) {
         form.onsubmit = async event => {
           event.preventDefault();
           const fields = form.elements;
