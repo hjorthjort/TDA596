@@ -28,9 +28,8 @@ func CreateBrokerState() (BrokerState, error) {
 }
 
 // CreateSubscriptionChannel Each subscription buffers up to 100 messages.
-// TODO(hj): Make this larger. Small for now to test dropping messages.
 func CreateSubscriptionChannel() SubscriptionChannel {
-	return make(SubscriptionChannel, 3)
+	return make(SubscriptionChannel, 100)
 }
 
 // AddSubscriberSafe adds a new subscriber to the topic in a thread-safe manner.
