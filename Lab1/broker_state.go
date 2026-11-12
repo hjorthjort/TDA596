@@ -7,6 +7,21 @@ import (
 
 var brokerState, _ = CreateBrokerState() // Global broker state for pub/sub
 
+func CreateBrokerState() (BrokerState, error) {
+	sem, err := CreateSemaphore(1)
+	if err != nil {
+		return BrokerState{}, err
+	}
+	return BrokerState{mutex: sem, nextId: 0,
+		queues:    make(map[string]map[int]SubscriptionChannel),
+		sequences: make(map[string]uint64)}, nil
+}
+
+// CreateSubscriptionChannel Each subscription buffers up to 100 messages.
+func CreateSubscriptionChannel() SubscriptionChannel {
+	return make(SubscriptionChannel, 100)
+}
+
 func (b *BrokerState) BrokerStateToString() string {
 	b.mutex.Acquire()
 	defer b.mutex.Release()
@@ -16,20 +31,6 @@ func (b *BrokerState) BrokerStateToString() string {
 		result += fmt.Sprintf("Topic: %s, Subscribers: %d\n", topic, len(subscribers))
 	}
 	return result
-}
-
-func CreateBrokerState() (BrokerState, error) {
-	sem, err := CreateSemaphore(1)
-	if err != nil {
-		return BrokerState{}, err
-	}
-	return BrokerState{mutex: sem, nextId: 0,
-		queues: make(map[string]map[int]SubscriptionChannel)}, nil
-}
-
-// CreateSubscriptionChannel Each subscription buffers up to 100 messages.
-func CreateSubscriptionChannel() SubscriptionChannel {
-	return make(SubscriptionChannel, 100)
 }
 
 // AddSubscriberSafe adds a new subscriber to the topic in a thread-safe manner.
@@ -77,9 +78,14 @@ func (b *BrokerState) UnsubscribeSafe(topic string, subscriptionId int) error {
 // single list, and the subscriber's queue is a pointer to the last message they have seen.
 // When there are zero pointers below a point in the queue,
 // we pop that message off the queue.
-func (b *BrokerState) PublishSafe(topic string, message Message) error {
+func (b *BrokerState) PublishSafe(topic string, body []byte) error {
 	b.mutex.Acquire()
 	defer b.mutex.Release()
+
+	// Assign once per publication, under the same lock as enqueueing, so all
+	// subscribers observe the same order. Publications without subscribers count too.
+	message := Message{Sequence: b.sequences[topic], Body: body}
+	b.sequences[topic]++
 
 	if subscribers, exists := b.queues[topic]; !exists {
 		return fmt.Errorf("no subscribers for topic: %s", topic)

@@ -137,18 +137,20 @@ func handleEvents(conn net.Conn, req *http.Request) {
 		conn.Write(CreateHttpResponseHeader(204, 0, ""))
 		return
 	}
-	header := CreateHttpResponseHeader(200, len(msg), "text/plain")
+	header := CreateHttpResponseHeader(200, len(msg.Body), "text/plain")
+	// Insert the sequence header before the final blank line.
+	header = append(header[:len(header)-2], []byte(fmt.Sprintf("X-Sequence-Number: %d\r\n\r\n", msg.Sequence))...)
 	_, err1 := conn.Write(header)
-	_, err2 := conn.Write(msg)
+	_, err2 := conn.Write(msg.Body)
 	if err1 != nil || err2 != nil {
 		slog.Debug(fmt.Sprintf("Error writing response: %v, %v", err1, err2))
 	}
 }
 
-func waitForMessage(channel SubscriptionChannel) ([]byte, error) {
+func waitForMessage(channel SubscriptionChannel) (Message, error) {
 	select {
 	case <-time.After(timeout):
-		return nil, fmt.Errorf("timeout waiting for event")
+		return Message{}, fmt.Errorf("timeout waiting for event")
 	case msg := <-channel:
 		return msg, nil
 	}
