@@ -166,3 +166,23 @@ func writeErrorResponse(conn net.Conn, statusCode int) {
 		slog.Debug(fmt.Sprintf("Error writing %d response: %v", statusCode, err))
 	}
 }
+
+func isSupportedFileType(path string) bool {
+	for ext := range supportedFileTypes {
+		if len(path) >= len(ext) && path[len(path)-len(ext):] == ext {
+			return true
+		}
+	}
+	return false
+}
+
+var isSupportedPubSubPath = func(path string, method Method) bool {
+	if expectedMethod, ok := supportedPubSubPaths[path]; ok {
+		return expectedMethod == method
+	}
+	return false
+}
+
+func isSupportedPath(path string, method Method) bool {
+	return isSupportedFileType(path) || isSupportedPubSubPath(path, method)
+}
