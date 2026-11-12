@@ -7,6 +7,56 @@ import (
 	"net/http"
 )
 
+var brokerState, _ = CreateBrokerState() // Global broker state for pub/sub
+
+// Debug printing
+func (b BrokerState) brokerStateToString() string {
+	b.mutex.Acquire()
+	defer b.mutex.Release()
+
+	result := "Broker State:\n"
+	for topic, subscribers := range b.queues {
+		result += fmt.Sprintf("Topic: %s, Subscribers: %d\n", topic, len(subscribers))
+	}
+	return result
+}
+
+func CreateBrokerState() (BrokerState, error) {
+	sem, err := CreateSemaphore(1)
+	if err != nil {
+		return BrokerState{}, err
+	}
+	return BrokerState{mutex: sem,
+		queues: make(map[string][]SubscriptionChannel)}, nil
+}
+
+// CreateSubscriptionChannel Each subscription buffers up to 100 messages.
+func CreateSubscriptionChannel() SubscriptionChannel {
+	return make(SubscriptionChannel, 100)
+}
+
+// AddSubscriberSafe adds a new subscriber to the topic in a thread-safe manner.
+// TODO(hj): Guard from becoming too large, instead of failing with OOM.
+func (b *BrokerState) AddSubscriberSafe(topic string) (subscriptionId int) {
+	b.mutex.Acquire()
+	defer b.mutex.Release()
+
+	if _, exists := b.queues[topic]; !exists {
+		b.queues[topic] = make([]SubscriptionChannel, 0)
+	}
+	subscriptionId = len(b.queues[topic])
+	b.queues[topic] = append(b.queues[topic], CreateSubscriptionChannel())
+	return subscriptionId
+}
+
+// Implementation notes: every subscriber only receives the events that
+// happen while they are subscribed.
+// If the publisher's work is to put it in the queue of every subscriber that
+// becomes O(N). That is fine for the initial implementation.
+// An optimization is that the publisher puts the messages for each topic in a
+// single list, and the subscriber's queue is a pointer to the last message they have seen.
+// When there are zero pointers below a point in the queue,
+// we pop that message off the queue.
 func handleWithPubSubBroker(conn net.Conn, req *http.Request) {
 	method, supported := supportedPubSubPaths[req.URL.Path]
 	if supported && method != req.Method {
@@ -30,8 +80,21 @@ func handleWithPubSubBroker(conn net.Conn, req *http.Request) {
 }
 
 func handleSubscribe(conn net.Conn, req *http.Request) {
-	slog.Debug(fmt.Sprintf("Handling subscribe request: %s %s %s", req.Method,
-		req.URL.Path, req.Proto))
+	topic := req.URL.Query().Get("topic")
+	if topic == "" {
+		slog.Debug("Missing topic parameter in subscribe request")
+		writeErrorResponse(conn, 400)
+		return
+	}
+	subscriptionId := brokerState.AddSubscriberSafe(topic)
+	body := fmt.Sprintf("%d", subscriptionId)
+	header := CreateHttpResponseHeader(201, len(body), "text/plain")
+	_, err1 := conn.Write(header)
+	_, err2 := conn.Write([]byte(body))
+	if err1 != nil || err2 != nil {
+		slog.Debug(fmt.Sprintf("Error writing response: %v, %v", err1, err2))
+	}
+	slog.Debug(brokerState.brokerStateToString())
 }
 
 func handleUnsubscribe(conn net.Conn, req *http.Request) {
