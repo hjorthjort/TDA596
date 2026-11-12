@@ -7,7 +7,10 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"time"
 )
+
+var timeout = 5 * time.Second
 
 func handleWithPubSubBroker(conn net.Conn, req *http.Request) {
 	method, supported := supportedPubSubPaths[req.URL.Path]
@@ -117,13 +120,26 @@ func handleEvents(conn net.Conn, req *http.Request) {
 
 	// In case we need to block here, release our semaphore.
 	semaphore.Release()
-	msg := <-channel
-	// Don't proceed until we have acquired the semaphore again.
+	msg, err := waitForMessage(channel)
 	semaphore.Acquire()
+	if err != nil {
+		slog.Debug("Timeout waiting for event")
+		writeErrorResponse(conn, 204)
+		return
+	}
 	header := CreateHttpResponseHeader(200, len(msg), "text/plain")
 	_, err1 := conn.Write(header)
 	_, err2 := conn.Write(msg)
 	if err1 != nil || err2 != nil {
 		slog.Debug(fmt.Sprintf("Error writing response: %v, %v", err1, err2))
+	}
+}
+
+func waitForMessage(channel SubscriptionChannel) ([]byte, error) {
+	select {
+	case <-time.After(timeout):
+		return nil, fmt.Errorf("timeout waiting for event")
+	case msg := <-channel:
+		return msg, nil
 	}
 }
