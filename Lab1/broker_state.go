@@ -102,6 +102,8 @@ func (b *BrokerState) PublishSafe(topic string, message Message) error {
 // EventSafe assumes subscriberId is an int >= 0.
 // Returns error only if the topic and/or subscriber is valid but missing.
 func (b *BrokerState) EventSafe(topic string, subscriptionId int) (SubscriptionChannel, error) {
+	b.mutex.Acquire()
+	defer b.mutex.Release()
 	if subscribers, exists := b.queues[topic]; !exists {
 		return nil, fmt.Errorf("no subscribers for topic: %s", topic)
 	} else {
