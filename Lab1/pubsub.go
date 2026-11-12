@@ -76,12 +76,19 @@ func handlePublish(conn net.Conn, req *http.Request) {
 		return
 	}
 	// Read request body
-	message, err := io.ReadAll(req.Body)
-	if err != nil {
-		message = []byte{} // Empty body = empty message. No reason not to allow this.
+	var message []byte
+	if req.Body == nil {
+		message = []byte{}
+	} else {
+		var err error
+		message, err = io.ReadAll(req.Body)
+		if err != nil {
+			slog.Debug(fmt.Sprintf("Error reading request body: %v", err))
+			writeErrorResponse(conn, 400)
+			return
+		}
 	}
-	err = brokerState.PublishSafe(topic, message)
-	if err != nil {
+	if err := brokerState.PublishSafe(topic, message); err != nil {
 		// This is not an error on the publisher's part, so no error response.
 		// It is just interesting to log.
 		slog.Debug(fmt.Sprintf("No subscribers for topic %s: %v", topic, err))
