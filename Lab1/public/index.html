@@ -28,7 +28,7 @@
           <h3>Unsubscribe</h3>
           <form action="/unsubscribe" method="post" data-pubsub>
             <label>Topic <input name="topic" value="test"></label>
-            <label>Subscriber ID <input name="id" type="number" step="1" required></label>
+            <label>Subscriber ID <input name="id" type="number" step="1"></label>
             <button type="submit">Unsubscribe</button>
             <output aria-live="polite"></output>
           </form>
@@ -110,8 +110,6 @@
           if (fields.id) url.searchParams.set("id", fields.id.value);
           const output = form.querySelector("output");
           const button = form.querySelector("button");
-          button.disabled = true;
-          output.textContent = "Sending…";
           try {
             const response = await fetch(url, {
               method: "POST",
@@ -121,8 +119,6 @@
             output.textContent = `HTTP ${response.status}${body ? `: ${body}` : ""}`;
           } catch (error) {
             output.textContent = `Request failed: ${error.message}`;
-          } finally {
-            button.disabled = false;
           }
         };
       }
