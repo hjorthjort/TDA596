@@ -1,5 +1,9 @@
 package main
 
+import "time"
+
+var timeout = 5 * time.Second
+
 type Method = string
 
 var supportedFileTypes = map[string]string{

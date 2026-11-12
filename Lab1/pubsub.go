@@ -10,8 +10,6 @@ import (
 	"time"
 )
 
-var timeout = 5 * time.Second
-
 func handleWithPubSubBroker(conn net.Conn, req *http.Request) {
 	method, supported := supportedPubSubPaths[req.URL.Path]
 	if supported && method != req.Method {
@@ -119,12 +117,24 @@ func handleEvents(conn net.Conn, req *http.Request) {
 	}
 
 	// In case we need to block here, release our semaphore.
+	// Clear the connection deadline, so that we can wait for a message without timing out.
+	if err = conn.SetDeadline(time.Time{}); err != nil {
+		// Hard failure, not writing anything back.
+		slog.Debug(fmt.Sprintf("Error removing deadline before waiting for message: %v", err))
+		return
+	}
 	semaphore.Release()
-	msg, err := waitForMessage(channel)
+	msg, timeOutErr := waitForMessage(channel)
 	semaphore.Acquire()
-	if err != nil {
+	// Set deadline for us to write the response back to the client
+	if err = conn.SetDeadline(time.Now().Add(timeout)); err != nil {
+		// Hard failure, not writing anything back.
+		slog.Debug(fmt.Sprintf("Error removing deadline: %v", err))
+		return
+	}
+	if timeOutErr != nil {
 		slog.Debug("Timeout waiting for event")
-		writeErrorResponse(conn, 204)
+		conn.Write(CreateHttpResponseHeader(204, 0, ""))
 		return
 	}
 	header := CreateHttpResponseHeader(200, len(msg), "text/plain")

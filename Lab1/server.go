@@ -57,6 +57,15 @@ func Serve(port string) error {
 			}
 			continue
 		}
+		err = conn.SetDeadline(time.Now().Add(timeout)) // Set a timeout for the connection.
+		if err != nil {
+			slog.Debug(fmt.Sprintf("Error setting connection deadline: %v", err))
+			semaphore.Release() // Release the semaphore if we failed to set the deadline.
+			if err = conn.Close(); err != nil {
+				slog.Debug(fmt.Sprintf("Error closing connection: %v", err))
+			}
+			continue
+		}
 		go func() {
 			defer semaphore.Release() // panic-resistant cleanup
 			asyncHandleRequest(conn)
