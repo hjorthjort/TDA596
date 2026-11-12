@@ -52,11 +52,21 @@ func (b *BrokerState) AddSubscriberSafe(topic string) (subscriptionId int) {
 	return subscriptionId
 }
 
-func (b *BrokerState) PublishSafe(topic string, message []byte) {
+// Implementation notes: every subscriber only receives the events that
+// happen while they are subscribed.
+// If the publisher's work is to put it in the queue of every subscriber that
+// becomes O(N). That is fine for the initial implementation.
+// An optimization is that the publisher puts the messages for each topic in a
+// single list, and the subscriber's queue is a pointer to the last message they have seen.
+// When there are zero pointers below a point in the queue,
+// we pop that message off the queue.
+func (b *BrokerState) PublishSafe(topic string, message []byte) error {
 	b.mutex.Acquire()
 	defer b.mutex.Release()
 
-	if subscribers, exists := b.queues[topic]; exists {
+	if subscribers, exists := b.queues[topic]; !exists {
+		return fmt.Errorf("no subscribers for topic: %s", topic)
+	} else {
 		for _, subscriber := range subscribers {
 			select {
 			case subscriber <- Message{content: message}:
@@ -67,16 +77,9 @@ func (b *BrokerState) PublishSafe(topic string, message []byte) {
 			}
 		}
 	}
+	return nil
 }
 
-// Implementation notes: every subscriber only receives the events that
-// happen while they are subscribed.
-// If the publisher's work is to put it in the queue of every subscriber that
-// becomes O(N). That is fine for the initial implementation.
-// An optimization is that the publisher puts the messages for each topic in a
-// single list, and the subscriber's queue is a pointer to the last message they have seen.
-// When there are zero pointers below a point in the queue,
-// we pop that message off the queue.
 func handleWithPubSubBroker(conn net.Conn, req *http.Request) {
 	method, supported := supportedPubSubPaths[req.URL.Path]
 	if supported && method != req.Method {
@@ -124,13 +127,25 @@ func handleUnsubscribe(conn net.Conn, req *http.Request) {
 
 func handlePublish(conn net.Conn, req *http.Request) {
 	topic := req.URL.Query().Get("topic")
+	if topic == "" {
+		slog.Debug("Missing topic parameter in publish request")
+		writeErrorResponse(conn, 400)
+		return
+	}
 	// Read request body
 	message, err := io.ReadAll(req.Body)
 	if err != nil {
 		message = []byte{} // Empty body = empty message. No reason not to allow this.
 	}
-	brokerState.PublishSafe(topic, message)
-	conn.Write(CreateHttpResponseHeader(200, 0, ""))
+	err = brokerState.PublishSafe(topic, message)
+	if err != nil {
+		// This is not an error on the publisher's part, so no error response.
+		// It is just interesting to log.
+		slog.Debug(fmt.Sprintf("No subscribers for topic %s: %v", topic, err))
+	}
+	if _, err := conn.Write(CreateHttpResponseHeader(200, 0, "")); err != nil {
+		slog.Debug(fmt.Sprintf("Error writing response: %v", err))
+	}
 }
 
 func handleEvents(conn net.Conn, req *http.Request) {
