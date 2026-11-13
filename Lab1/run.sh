@@ -1,11 +1,21 @@
 #!/bin/bash
 set -exuo pipefail
 
-docker stop lab1 || true
+NAME=lab1
+TAG=latest
+DOCKERHUB_USERNAME=lerthsk
 
-docker build -t lab1:1.0 .
-docker run --rm -d \
-  --name lab1 \
-  -p 127.0.0.1:8080:8080 \
-  -e LOG_LEVEL=debug \
-  lab1:1.0
+docker stop $NAME || true
+
+docker buildx build \
+  --platform linux/arm64 \
+  -t $DOCKERHUB_USERNAME/$NAME:$TAG \
+  ${PUSH:+"--push"} .
+
+if [[ "${LOCAL:-}" == "1" ]]; then
+    docker run --rm -d \
+        --name $NAME \
+        -p 127.0.0.1:8080:8080 \
+        -e LOG_LEVEL=debug \
+        $NAME:$TAG
+fi
