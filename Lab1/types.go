@@ -1,5 +1,11 @@
 package main
 
+import "time"
+
+var timeout = 15 * time.Second
+
+type Method = string
+
 var supportedFileTypes = map[string]string{
 	".html": "text/html",
 	".txt":  "text/plain",
@@ -9,11 +15,26 @@ var supportedFileTypes = map[string]string{
 	".css":  "text/css",
 }
 
-func isSupportedFileType(path string) bool {
-	for ext := range supportedFileTypes {
-		if len(path) >= len(ext) && path[len(path)-len(ext):] == ext {
-			return true
-		}
-	}
-	return false
+var supportedPubSubPaths = map[string]Method{
+	"/subscribe":   "POST",
+	"/unsubscribe": "POST",
+	"/publish":     "POST",
+	"/events":      "GET",
+}
+
+type Message struct {
+	Sequence uint64
+	Body     []byte
+}
+
+// A subscription should only be polled by one connection at a time.
+type SubscriptionChannel struct {
+	Queue chan Message
+	mutex Semaphore
+}
+type BrokerState struct {
+	mutex     Semaphore
+	nextId    int // Unique nonce, allows up to total of 2^31-1 subscribers total
+	queues    map[string]map[int]*SubscriptionChannel
+	sequences map[string]uint64 // Last publication number for each topic
 }

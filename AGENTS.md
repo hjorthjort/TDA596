@@ -1,7 +1,7 @@
 # Project instructions
 
 - If this project has no Git repository, create one.
-- Commit completed, self-contained work. A task may require several commits.
+- Never make Git commits unless the user explicitly asks you to.
 
 # Lab 1 learning preference
 

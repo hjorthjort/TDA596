@@ -51,7 +51,7 @@ Your server should accept requests for the following file extensions and transmi
 
 ### POST requests and atomic updates
 
-For POST requests, please make sure that you store the files and make them accessible with a subsequent GET request. And several clients may send POST requests for the same file at the same time, while other clients are sending it.
+For POST requests, please make sure that you store the files and make them accessible with a subsequent GET request. And several clients may send POST requests for the same file at the same time, while other clients are reading it.
 
 > Your server should make sure that these updates are **atomic**: a GET request should always return one complete version of the file, not a partially written or mixed one.
 
@@ -63,13 +63,13 @@ You can also use the package `net/http`, but **ONLY for parsing and working with
 
 You should not use e.g., `http.ListenAndServe` which trivializes the assignment (the same goes for `http.Listen` and `http.Serve`).
 
-## Publish–subscribe broker
+## 2. Pub-sub broker
+
+**Bonus part · up to 7 extra bonus points**
 
 ### Background
 
-Ordinarily, HTTP is a request-response protocol: a client asks for a resource and the server answers immediately. In many distributed systems, however, components need to be notified when something happens, without knowing who produces the information or when.
-
-A common solution is the **publish-subscribe pattern**. Publishers send messages on a topic to a broker. The broker forwards each message to every subscriber of that topic. Publishers and subscribers never communicate directly, and they do not need to know about each other.
+The **publish-subscribe pattern** lets clients receive messages on a topic without knowing who produces them or when. Publishers send messages on a topic to a broker. The broker forwards each message to every subscriber of that topic. Publishers and subscribers never communicate directly, and they do not need to know about each other.
 
 ### Extending the server
 
@@ -81,18 +81,41 @@ Your broker should support the following four operations.
 
 | # | Request | Operation |
 | :--- | :--- | :--- |
-| 1 | `POST /subscribe?topic=X` | Registers a new subscriber on topic X. |
+| 1 | `POST /subscribe?topic=X` | Registers a new subscriber on topic X and responds **201 "Created"** with the subscriber's id (e.g., `{"id": N}`) assigned by the broker. |
 | 2 | `POST /unsubscribe?topic=X&id=N` | Removes subscriber N. |
 | 3 | `POST /publish?topic=X` | Sends the request body as a message to every current subscriber of X. |
 | 4 | `GET /events?topic=X&id=N` | Delivers subscriber N's messages, using one of the approaches below. |
+
+Each subscription receives a **unique ID**, so the same client subscribing to different topics will receive different IDs. The subscriber uses this ID in later requests.
 
 **Message delivery approaches**
 
 - **(a) Long polling:** the server holds the request until a message arrives or a timeout expires, and the subscriber then polls again, and it responds **204 "No Content"** if nothing arrives within the timeout; or
 - **(b) Streaming:** the server keeps one response open and writes each message to it as it arrives; or
-- **(c) Any other approach** that delivers messages immediately without repeated requests, as long as you can explain your choice.
+- **(c) Any other approach** that delivers a message to a waiting subscriber as soon as it is published, as long as you can explain your choice.
 
-Requests with a missing topic or invalid id should return **400 "Bad Request"**, and other methods **501 "Not Implemented"**.
+Requests with a missing topic or invalid id should return **400 "Bad Request"**, requests for an unknown subscriber **404 "Not Found"**, and other methods **501 "Not Implemented"**.
+
+### Long-polling example
+
+The following diagram reproduces the PDF's example of how a subscriber receives a message with long polling. All requests are sent by the clients; the broker only responds to them, and the message is delivered in the response to the subscriber's waiting `GET /events` request.
+
+```mermaid
+sequenceDiagram
+    participant S as Subscriber
+    participant B as Server (broker)
+    participant P as Publisher
+    S->>B: POST /subscribe?topic=X
+    B-->>S: Registers subscriber, replies e.g., {"id": N}
+    S->>B: GET /events?topic=X&id=N
+    Note over S,B: No messages yet: request waits, connection stays open
+    P->>B: POST /publish?topic=X (body: "message")
+    B-->>P: 200 OK
+    B-->>S: 200 ["message"] (same connection, answered right away)
+    S->>B: GET /events?topic=X&id=N
+    Note over S,B: Subscriber asks again; nothing arrives before timeout
+    B-->>S: 204 No Content (after a timeout, e.g., 15 sec)
+```
 
 ### Shared state and message ordering
 
@@ -108,11 +131,17 @@ Give each subscriber a **bounded queue** (e.g. a buffered channel), and make sur
 
 Long pollings that are waiting for messages may be excluded from the limit of 10 concurrent Go routines from Part 1, since they are not doing any work while they wait.
 
-## Portability
+### Containers
+
+**Strongly recommended:** use containers to help you build this and reuse it later for further labs.
 
 Look at either **Docker, LXC or Vagrant** to implement your server. This way you will never have portability issues, and it will make your solution cleaner. Bonus for this will also be considered based on the cleanliness of your code/solution.
 
-## Move to the Cloud!
+## 3. Cloud
+
+**Up to 3 extra bonus points**
+
+Move to the Cloud!
 
 **Access to AWS:** you can all use **50$ worth of credits** for the AWS platform via AWS Learner Lab.
 
@@ -122,10 +151,14 @@ When you click on **"Get Started"**, choose **"Create an Account"** — This is 
 
 Check your spam and if you're still having trouble accessing AWS, contact the examiner.
 
-## Testing and assessment
+## 4. Testing
 
 There are **no included tests** for this assignment. However, to make sure your code works, you should set up a way to test its functionality yourself.
+
+## 5. Grading
 
 Each group will have **30 minutes** to present their solution, during which we will ask you questions about your code and run tests on your implementation.
 
 **Make sure to prepare the demo before your turn for the assessment.**
+
+**Lab responsible:** Jingyu Liu <jingyu.liu@chalmers.se> and Yixing Zhang <yixing@chalmers.se>

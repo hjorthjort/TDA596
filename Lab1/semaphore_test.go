@@ -16,6 +16,23 @@ func TestAcquireReleaseSemaphore(t *testing.T) {
 	sem.Release()
 }
 
+func TestTryAddSemaphore(t *testing.T) {
+	sem, _ := CreateSemaphore(2)
+	sem.Acquire()
+	if !sem.TryAdd() {
+		t.Fatal("TryAdd failed with a free slot")
+	}
+	if sem.TryAdd() {
+		t.Fatal("TryAdd succeeded with all slots occupied")
+	}
+	sem.Release()
+	if !sem.TryAdd() {
+		t.Fatal("TryAdd failed after Release")
+	}
+	sem.Release()
+	sem.Release()
+}
+
 func TestSemaphoreBlocksUntilRelease(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		sem, _ := CreateSemaphore(2)
