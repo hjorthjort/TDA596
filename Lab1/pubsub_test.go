@@ -31,10 +31,10 @@ func (c *pollTestConn) Write(p []byte) (int, error) {
 }
 
 func TestOverlappingPollRejectedThroughResponseWrite(t *testing.T) {
-	previousBroker, previousSemaphore := brokerState, semaphore
-	defer func() { brokerState, semaphore = previousBroker, previousSemaphore }()
-	brokerState, _ = CreateBrokerState()
-	semaphore, _ = CreateSemaphore(10)
+	previousBroker, previousServer := brokerState, serverState
+	defer func() { brokerState, serverState = previousBroker, previousServer }()
+	brokerState = CreateBrokerState()
+	serverState = &ServerState{semaphore: CreateSemaphore(10), timeout: time.Second}
 	id := brokerState.AddSubscriberSafe("topic")
 	otherID := brokerState.AddSubscriberSafe("topic")
 	if err := brokerState.PublishSafe("topic", []byte("hello")); err != nil {
@@ -48,8 +48,8 @@ func TestOverlappingPollRejectedThroughResponseWrite(t *testing.T) {
 		return req
 	}
 	run := func(conn *pollTestConn, req *http.Request) {
-		semaphore.Acquire()
-		defer semaphore.Release()
+		serverState.semaphore.Acquire()
+		defer serverState.semaphore.Release()
 		handleEvents(conn, req)
 	}
 	first := &pollTestConn{started: make(chan struct{}), resume: make(chan struct{})}

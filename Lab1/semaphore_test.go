@@ -6,18 +6,18 @@ import (
 )
 
 func TestAcquireSemaphore(t *testing.T) {
-	sem, _ := CreateSemaphore(1)
+	sem := CreateSemaphore(1)
 	sem.Acquire()
 }
 
 func TestAcquireReleaseSemaphore(t *testing.T) {
-	sem, _ := CreateSemaphore(1)
+	sem := CreateSemaphore(1)
 	sem.Acquire()
 	sem.Release()
 }
 
 func TestTryAddSemaphore(t *testing.T) {
-	sem, _ := CreateSemaphore(2)
+	sem := CreateSemaphore(2)
 	sem.Acquire()
 	if !sem.TryAcquire() {
 		t.Fatal("TryAdd failed with a free slot")
@@ -35,7 +35,7 @@ func TestTryAddSemaphore(t *testing.T) {
 
 func TestSemaphoreBlocksUntilRelease(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		sem, _ := CreateSemaphore(2)
+		sem := CreateSemaphore(2)
 		sem.Acquire()
 		sem.Acquire()
 

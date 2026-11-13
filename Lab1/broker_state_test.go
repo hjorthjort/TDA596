@@ -7,10 +7,7 @@ import (
 )
 
 func TestConcurrentPublicationSequences(t *testing.T) {
-	b, err := CreateBrokerState()
-	if err != nil {
-		t.Fatal(err)
-	}
+	b := CreateBrokerState()
 	a := b.AddSubscriberSafe("topic")
 	c := b.AddSubscriberSafe("topic")
 	firstSubscription, _ := b.EventSafe("topic", a)
@@ -40,10 +37,7 @@ func TestConcurrentPublicationSequences(t *testing.T) {
 }
 
 func TestSequencesSurviveDropsAndResubscription(t *testing.T) {
-	b, err := CreateBrokerState()
-	if err != nil {
-		t.Fatal(err)
-	}
+	b := CreateBrokerState()
 	id := b.AddSubscriberSafe("topic")
 	subscription, _ := b.EventSafe("topic", id)
 	queue := subscription.Queue

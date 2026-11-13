@@ -6,7 +6,7 @@ import (
 )
 
 type ServerState struct {
-	semaphore Semaphore
+	semaphore *Semaphore
 	wwwDir    string
 	rootDir   *os.Root
 	timeout   time.Duration
@@ -38,10 +38,10 @@ type Message struct {
 // A subscription should only be polled by one connection at a time.
 type SubscriptionChannel struct {
 	Queue chan Message
-	mutex Semaphore
+	mutex *Semaphore
 }
 type BrokerState struct {
-	mutex     Semaphore
+	mutex     *Semaphore
 	nextId    int // Unique nonce, allows up to total of 2^31-1 subscribers total
 	queues    map[string]map[int]*SubscriptionChannel
 	sequences map[string]uint64 // Last publication number for each topic
