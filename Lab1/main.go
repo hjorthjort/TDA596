@@ -11,7 +11,8 @@ var brokerState = CreateBrokerState() // Global broker state for pub/sub
 var serverState *ServerState          // Global server state for HTTP server
 
 func main() {
-	serverState, err := CreateServerState()
+	var err error
+	serverState, err = CreateServerState()
 	if err != nil {
 		slog.Debug(fmt.Sprintf("Error creating server state: %v", err))
 		os.Exit(1)
