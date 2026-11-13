@@ -51,7 +51,7 @@ func Serve(port string) error {
 		if err != nil {
 			semaphore.Release() // Release the semaphore if we failed to accept a connection.
 			slog.Debug(fmt.Sprintf("Error accepting connection: %v", err))
-			if errors.Is(net.ErrClosed, err) {
+			if errors.Is(err, net.ErrClosed) {
 				// Listener closed, exit gracefully.
 				return nil
 			}
