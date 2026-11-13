@@ -11,24 +11,30 @@ import (
 	"time"
 )
 
-var semaphore, _ = CreateSemaphore(10) // Limit to 10 concurrent connections
-
-var wwwDir string    // Default document root
-var rootDir *os.Root // Traversal resistant path
+func CreateServerState() (*ServerState, error) {
+	wwwDir, err2 := os.Getwd()
+	rootDir, err1 := os.OpenRoot(wwwDir + "/public")
+	if err1 != nil || err2 != nil {
+		slog.Debug(fmt.Sprintf("Error creating server state: %v, %v", err1, err2))
+		return nil, errors.New("failed to create server state")
+	}
+	return &ServerState{
+		semaphore: CreateSemaphore(10),
+		wwwDir:    wwwDir,
+		rootDir:   rootDir,
+		timeout:   14 * time.Second,
+	}, nil
+}
+func (state *ServerState) Cleanup() {
+	if state.rootDir != nil {
+		err := state.rootDir.Close()
+		if err != nil {
+			slog.Debug(fmt.Sprintf("Error closing root directory: %v", err))
+		}
+	}
+}
 
 func Serve(port string) error {
-	var err error
-	wwwDir, err = os.Getwd()
-	if err != nil {
-		slog.Debug(fmt.Sprintf("Error getting current working directory: %v", err))
-		return err
-	}
-	rootDir, err = os.OpenRoot(wwwDir + "/public")
-	if err != nil {
-		slog.Debug(fmt.Sprintf("Error opening root directory: %v", err))
-		return err
-	}
-	defer rootDir.Close()
 
 	listener, err := getListener(port)
 	if err != nil {
@@ -46,10 +52,10 @@ func Serve(port string) error {
 	for {
 		// Only spawn a child process if there are available slots. Always
 		// release the semaphore after handling the request.
-		semaphore.Acquire()
+		serverState.semaphore.Acquire()
 		conn, err := listener.Accept()
 		if err != nil {
-			semaphore.Release() // Release the semaphore if we failed to accept a connection.
+			serverState.semaphore.Release() // Release the semaphore if we failed to accept a connection.
 			slog.Debug(fmt.Sprintf("Error accepting connection: %v", err))
 			if errors.Is(err, net.ErrClosed) {
 				// Listener closed, exit gracefully.
@@ -57,17 +63,17 @@ func Serve(port string) error {
 			}
 			continue
 		}
-		err = conn.SetDeadline(time.Now().Add(timeout)) // Set a timeout for the connection.
+		err = conn.SetDeadline(time.Now().Add(serverState.timeout)) // Set a timeout for the connection.
 		if err != nil {
 			slog.Debug(fmt.Sprintf("Error setting connection deadline: %v", err))
-			semaphore.Release() // Release the semaphore if we failed to set the deadline.
+			serverState.semaphore.Release() // Release the semaphore if we failed to set the deadline.
 			if err = conn.Close(); err != nil {
 				slog.Debug(fmt.Sprintf("Error closing connection: %v", err))
 			}
 			continue
 		}
 		go func() {
-			defer semaphore.Release() // panic-resistant cleanup
+			defer serverState.semaphore.Release() // panic-resistant cleanup
 			asyncHandleRequest(conn)
 		}()
 	}

@@ -13,10 +13,10 @@ import (
 )
 
 func handleGetRequest(conn net.Conn, req *http.Request) {
-	file, err := rootDir.Open(strings.TrimPrefix(req.URL.Path, "/"))
+	file, err := serverState.rootDir.Open(strings.TrimPrefix(req.URL.Path, "/"))
 	if err != nil {
 		slog.Debug(fmt.Sprintf("Error opening file: %v", err))
-		slog.Debug(fmt.Sprintf("Full path %s", wwwDir+req.URL.Path))
+		slog.Debug(fmt.Sprintf("Full path %s", serverState.wwwDir+req.URL.Path))
 		writeErrorResponse(conn, 404)
 		return
 	}
@@ -56,7 +56,7 @@ func handlePostRequest(conn net.Conn, req *http.Request) {
 		return
 	}
 	defer tmpFile.Close()
-	defer rootDir.Remove(filepath.Base(tmpFile.Name())) // Clean up the temporary file if necessary.
+	defer serverState.rootDir.Remove(filepath.Base(tmpFile.Name())) // Clean up the temporary file if necessary.
 	_, err = io.Copy(tmpFile, req.Body)
 	if err != nil {
 		slog.Debug(fmt.Sprintf("Error writing to tmp file: %v", err))
@@ -64,13 +64,13 @@ func handlePostRequest(conn net.Conn, req *http.Request) {
 		return
 	}
 	path := strings.TrimPrefix(req.URL.Path, "/")
-	if err := rootDir.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := serverState.rootDir.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		slog.Debug(fmt.Sprintf("Error creating parent directories: %v", err))
 		writeErrorResponse(conn, 500)
 		return
 	}
 	// Atomically rename the temporary file to the requested file name.
-	err = rootDir.Rename(filepath.Base(tmpFile.Name()), path)
+	err = serverState.rootDir.Rename(filepath.Base(tmpFile.Name()), path)
 	if err != nil {
 		slog.Debug(fmt.Sprintf("Error renaming tmp file: %v", err))
 		writeErrorResponse(conn, 500)
@@ -90,7 +90,7 @@ func createTmpFile() (*os.File, error) {
 	// A collision indicates and active attack, and it would be acceptable to
 	// fail the request and return a 500 Internal Server Error in that case.
 	name := ".upload-" + rand.Text() + ".tmp"
-	tmp, err := rootDir.OpenFile(
+	tmp, err := serverState.rootDir.OpenFile(
 		name,
 		// write only | create new file | fail if file exists
 		os.O_WRONLY|os.O_CREATE|os.O_EXCL,

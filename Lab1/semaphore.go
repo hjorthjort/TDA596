@@ -1,25 +1,23 @@
 package main
 
-import "errors"
-
 type Semaphore struct {
 	sem chan struct{}
 }
 
-func CreateSemaphore(n int) (Semaphore, error) {
+func CreateSemaphore(n int) Semaphore {
 	if n <= 0 {
-		return Semaphore{}, errors.New("semaphore size must be greater than 0")
+		n = 1
 	}
 	sem := make(chan struct{}, n)
-	return Semaphore{sem: sem}, nil
+	return Semaphore{sem: sem}
 }
 
 func (s Semaphore) Acquire() {
 	s.sem <- struct{}{}
 }
 
-// TryAdd acquires a slot without waiting. It returns false when no slot is free.
-func (s Semaphore) TryAdd() bool {
+// TryAcquire acquires a slot without waiting. It returns false when no slot is free.
+func (s Semaphore) TryAcquire() bool {
 	select {
 	case s.sem <- struct{}{}:
 		return true

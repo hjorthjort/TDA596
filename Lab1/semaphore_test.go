@@ -19,14 +19,14 @@ func TestAcquireReleaseSemaphore(t *testing.T) {
 func TestTryAddSemaphore(t *testing.T) {
 	sem, _ := CreateSemaphore(2)
 	sem.Acquire()
-	if !sem.TryAdd() {
+	if !sem.TryAcquire() {
 		t.Fatal("TryAdd failed with a free slot")
 	}
-	if sem.TryAdd() {
+	if sem.TryAcquire() {
 		t.Fatal("TryAdd succeeded with all slots occupied")
 	}
 	sem.Release()
-	if !sem.TryAdd() {
+	if !sem.TryAcquire() {
 		t.Fatal("TryAdd failed after Release")
 	}
 	sem.Release()

@@ -1,8 +1,16 @@
 package main
 
-import "time"
+import (
+	"os"
+	"time"
+)
 
-var timeout = 15 * time.Second
+type ServerState struct {
+	semaphore Semaphore
+	wwwDir    string
+	rootDir   *os.Root
+	timeout   time.Duration
+}
 
 type Method = string
 

@@ -7,7 +7,16 @@ import (
 	"runtime"
 )
 
+var brokerState = CreateBrokerState() // Global broker state for pub/sub
+var serverState *ServerState          // Global server state for HTTP server
+
 func main() {
+	serverState, err := CreateServerState()
+	if err != nil {
+		slog.Debug(fmt.Sprintf("Error creating server state: %v", err))
+		os.Exit(1)
+	}
+	defer serverState.Cleanup()
 	// Set up simple debug logging.
 	if os.Getenv("LOG_LEVEL") == "debug" {
 		slog.SetLogLoggerLevel(slog.LevelDebug)

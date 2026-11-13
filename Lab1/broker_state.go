@@ -5,21 +5,15 @@ import (
 	"log/slog"
 )
 
-var brokerState, _ = CreateBrokerState() // Global broker state for pub/sub
-
-func CreateBrokerState() (*BrokerState, error) {
-	sem, err := CreateSemaphore(1)
-	if err != nil {
-		return &BrokerState{}, err
-	}
-	return &BrokerState{mutex: sem, nextId: 0,
+func CreateBrokerState() *BrokerState {
+	return &BrokerState{mutex: CreateSemaphore(1), nextId: 0,
 		queues:    make(map[string]map[int]*SubscriptionChannel),
-		sequences: make(map[string]uint64)}, nil
+		sequences: make(map[string]uint64)}
 }
 
 // CreateSubscriptionChannel Each subscription buffers up to 100 messages.
 func CreateSubscriptionChannel() *SubscriptionChannel {
-	mutex, _ := CreateSemaphore(1) // Fixed positive capacity cannot fail.
+	mutex := CreateSemaphore(1) // Fixed positive capacity cannot fail.
 	return &SubscriptionChannel{Queue: make(chan Message, 100), mutex: mutex}
 }
 

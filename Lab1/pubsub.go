@@ -115,7 +115,7 @@ func handleEvents(conn net.Conn, req *http.Request) {
 		return
 	}
 
-	if !channel.mutex.TryAdd() {
+	if !channel.mutex.TryAcquire() {
 		writeErrorResponse(conn, 409)
 		return
 	}
@@ -129,11 +129,11 @@ func handleEvents(conn net.Conn, req *http.Request) {
 		slog.Debug(fmt.Sprintf("Error removing deadline before waiting for message: %v", err))
 		return
 	}
-	semaphore.Release()
+	serverState.semaphore.Release()
 	msg, timeOutErr := waitForMessage(channel)
-	semaphore.Acquire()
+	serverState.semaphore.Acquire()
 	// Set deadline for us to write the response back to the client
-	if err = conn.SetDeadline(time.Now().Add(timeout)); err != nil {
+	if err = conn.SetDeadline(time.Now().Add(serverState.timeout)); err != nil {
 		// Hard failure, not writing anything back.
 		slog.Debug(fmt.Sprintf("Error removing deadline: %v", err))
 		return
@@ -155,7 +155,7 @@ func handleEvents(conn net.Conn, req *http.Request) {
 
 func waitForMessage(channel *SubscriptionChannel) (Message, error) {
 	select {
-	case <-time.After(timeout):
+	case <-time.After(serverState.timeout):
 		return Message{}, fmt.Errorf("timeout waiting for event")
 	case msg := <-channel.Queue:
 		return msg, nil
