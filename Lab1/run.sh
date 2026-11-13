@@ -27,6 +27,7 @@ digest=$(jq -er '.["containerimage.digest"]' "$metadata")
 image_ref="$IMAGE@$digest"
 
 ssh -i "$SSH_KEY" -o BatchMode=yes "ec2-user@$EC2_HOST" \
+    -o StrictHostKeyChecking=accept-new                 \
     bash -s -- "$image_ref" <<'REMOTE'
 set -euo pipefail
 sudo -n docker pull "$1"
