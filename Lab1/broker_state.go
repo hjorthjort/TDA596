@@ -7,13 +7,13 @@ import (
 
 var brokerState, _ = CreateBrokerState() // Global broker state for pub/sub
 
-func CreateBrokerState() (BrokerState, error) {
+func CreateBrokerState() (*BrokerState, error) {
 	sem, err := CreateSemaphore(1)
 	if err != nil {
-		return BrokerState{}, err
+		return &BrokerState{}, err
 	}
-	return BrokerState{mutex: sem, nextId: 0,
-		queues:    make(map[string]map[int]SubscriptionChannel),
+	return &BrokerState{mutex: sem, nextId: 0,
+		queues:    make(map[string]map[int]*SubscriptionChannel),
 		sequences: make(map[string]uint64)}, nil
 }
 
