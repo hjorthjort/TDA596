@@ -8,13 +8,17 @@ COPY go.mod *.go ./
 
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -o /out/http_server .
 
+FROM build AS test
+COPY public/ ./public/
+RUN go test -count=1 -timeout=60s ./...
+
 # Restart from empty file system and add the app/ directory.
 # No go files etc.
 FROM scratch
 WORKDIR /app
 
 # Copy the executable from the `build` stage
-COPY --from=build /out/http_server /app/http_server
+COPY --from=test /out/http_server /app/http_server
 COPY --chown=10001:10001 public/ /app/public/
 
 USER 10001:10001
