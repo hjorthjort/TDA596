@@ -23,17 +23,6 @@ func CreateSubscriptionChannel() *SubscriptionChannel {
 	return &SubscriptionChannel{Queue: make(chan Message, 100), mutex: mutex}
 }
 
-func (b *BrokerState) BrokerStateToString() string {
-	b.mutex.Acquire()
-	defer b.mutex.Release()
-
-	result := "Broker State:\n"
-	for topic, subscribers := range b.queues {
-		result += fmt.Sprintf("Topic: %s, Subscribers: %d\n", topic, len(subscribers))
-	}
-	return result
-}
-
 // AddSubscriberSafe adds a new subscriber to the topic in a thread-safe manner.
 // TODO(hj): Guard from becoming too large, instead of failing with OOM.
 // TODO(hj): Handle nonce wraparound. For now we are okay with max 2^31-1.
