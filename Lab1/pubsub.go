@@ -47,7 +47,6 @@ func handleSubscribe(conn net.Conn, req *http.Request) {
 	if err1 != nil || err2 != nil {
 		slog.Debug(fmt.Sprintf("Error writing response: %v, %v", err1, err2))
 	}
-	slog.Debug(brokerState.BrokerStateToString())
 }
 
 func handleUnsubscribe(conn net.Conn, req *http.Request) {
