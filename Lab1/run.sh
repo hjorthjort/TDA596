@@ -1,9 +1,10 @@
 #!/bin/bash
+EC2_HOST=18.206.160.161
+
 set -euo pipefail
 cd "$(dirname "$0")"
 
 IMAGE=lerthsk/lab1
-EC2_HOST=54.144.165.163
 SSH_KEY="$HOME/.ssh/tda596-aws.pem"
 
 changes=$(git status --porcelain --untracked-files=all)
