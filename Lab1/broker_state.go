@@ -18,8 +18,9 @@ func CreateBrokerState() (*BrokerState, error) {
 }
 
 // CreateSubscriptionChannel Each subscription buffers up to 100 messages.
-func CreateSubscriptionChannel() SubscriptionChannel {
-	return make(SubscriptionChannel, 100)
+func CreateSubscriptionChannel() *SubscriptionChannel {
+	mutex, _ := CreateSemaphore(1) // Fixed positive capacity cannot fail.
+	return &SubscriptionChannel{Queue: make(chan Message, 100), mutex: mutex}
 }
 
 func (b *BrokerState) BrokerStateToString() string {
@@ -43,7 +44,7 @@ func (b *BrokerState) AddSubscriberSafe(topic string) (subscriptionId int) {
 	defer b.mutex.Release()
 
 	if _, exists := b.queues[topic]; !exists {
-		b.queues[topic] = make(map[int]SubscriptionChannel)
+		b.queues[topic] = make(map[int]*SubscriptionChannel)
 	}
 	id := b.nextId
 	b.nextId++
@@ -92,7 +93,7 @@ func (b *BrokerState) PublishSafe(topic string, body []byte) error {
 	} else {
 		for id, subscriber := range subscribers {
 			select {
-			case subscriber <- message:
+			case subscriber.Queue <- message:
 				// Message sent successfully
 			default:
 				// Subscriber's channel is full, drop the message for this subscriber
@@ -107,7 +108,7 @@ func (b *BrokerState) PublishSafe(topic string, body []byte) error {
 
 // EventSafe assumes subscriberId is an int >= 0.
 // Returns error only if the topic and/or subscriber is valid but missing.
-func (b *BrokerState) EventSafe(topic string, subscriptionId int) (SubscriptionChannel, error) {
+func (b *BrokerState) EventSafe(topic string, subscriptionId int) (*SubscriptionChannel, error) {
 	b.mutex.Acquire()
 	defer b.mutex.Release()
 	if subscribers, exists := b.queues[topic]; !exists {

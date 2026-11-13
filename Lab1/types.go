@@ -26,10 +26,15 @@ type Message struct {
 	Sequence uint64
 	Body     []byte
 }
-type SubscriptionChannel = chan Message
+
+// A subscription should only be polled by one connection at a time.
+type SubscriptionChannel struct {
+	Queue chan Message
+	mutex Semaphore
+}
 type BrokerState struct {
 	mutex     Semaphore
 	nextId    int // Unique nonce, allows up to total of 2^31-1 subscribers total
-	queues    map[string]map[int]SubscriptionChannel
+	queues    map[string]map[int]*SubscriptionChannel
 	sequences map[string]uint64 // Last publication number for each topic
 }

@@ -18,6 +18,16 @@ func (s Semaphore) Acquire() {
 	s.sem <- struct{}{}
 }
 
+// TryAdd acquires a slot without waiting. It returns false when no slot is free.
+func (s Semaphore) TryAdd() bool {
+	select {
+	case s.sem <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
 func (s Semaphore) Release() {
 	<-s.sem
 }

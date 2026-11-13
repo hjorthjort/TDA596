@@ -116,6 +116,13 @@ func handleEvents(conn net.Conn, req *http.Request) {
 		return
 	}
 
+	if !channel.mutex.TryAdd() {
+		writeErrorResponse(conn, 409)
+		return
+	}
+	// Keep exclusive ownership through response writing, including error paths.
+	defer channel.mutex.Release()
+
 	// In case we need to block here, release our semaphore.
 	// Clear the connection deadline, so that we can wait for a message without timing out.
 	if err = conn.SetDeadline(time.Time{}); err != nil {
@@ -147,11 +154,11 @@ func handleEvents(conn net.Conn, req *http.Request) {
 	}
 }
 
-func waitForMessage(channel SubscriptionChannel) (Message, error) {
+func waitForMessage(channel *SubscriptionChannel) (Message, error) {
 	select {
 	case <-time.After(timeout):
 		return Message{}, fmt.Errorf("timeout waiting for event")
-	case msg := <-channel:
+	case msg := <-channel.Queue:
 		return msg, nil
 	}
 }
