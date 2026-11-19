@@ -29,7 +29,7 @@ ssh -i "$HOME/.ssh/tda596-aws.pem" -o BatchMode=yes -o StrictHostKeyChecking=acc
 set -euo pipefail
 sudo -n docker pull "$1"
 sudo -n docker rm -f lab1 || true
-sudo -n docker run -d --name lab1 --restart unless-stopped \
+sudo -n docker run -d --name lab1$commit --restart unless-stopped \
     -p 80:8080 -e LOG_LEVEL=debug "$1"
 test "$(sudo -n docker inspect --format '{{.State.Running}}' lab1)" = true
 REMOTE
