@@ -1,12 +1,12 @@
 Accessing EC2 instance:
 
 ```sh
-ssh -i ~/.ssh/lab1-key.pem ec2-user@54.144.165.163
+ssh -i ~/.ssh/lab1-key.pem ec2-user@$IP_ADDRESS
 ```
 
 Testing:
 ```
-curl -i http://54.144.165.163/index.html
+curl -i http://$IP_ADDRESS/index.html
 ```
 
 # How to run locally
@@ -19,7 +19,7 @@ curl -i http://54.144.165.163/index.html
 LOG_LEVEL=debug ./http_server 8080
 ```
 
-Specifying port 0 assign a free port.
+Specifying port 0 assigns a free port.
 
 ## Using Docker
 
@@ -46,10 +46,14 @@ back online.
 
 https://awsacademy.instructure.com/courses/195325/modules/items/19333881
 
+Find the IP at:
+
+https://us-east-1.console.aws.amazon.com/ec2/home?region=us-east-1#Instances:
+
 To deploy the latest changes, commit all your work and run
 
 ```sh
-./run.sh
+EC2_HOST=$IP_ADDRESS ./run.sh
 ```
 
 Go to the IP address of the instance, path /index.html
