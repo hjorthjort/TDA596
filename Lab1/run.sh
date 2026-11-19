@@ -1,6 +1,4 @@
 #!/bin/bash
-EC2_HOST=18.206.160.161
-
 set -euo pipefail
 cd "$(dirname "$0")"
 
