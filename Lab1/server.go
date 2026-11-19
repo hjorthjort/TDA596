@@ -182,7 +182,7 @@ func isSupportedFileType(path string) bool {
 	return false
 }
 
-var isSupportedPubSubPath = func(path string, method Method) bool {
+func isSupportedPubSubPath(path string, method Method) bool {
 	if expectedMethod, ok := supportedPubSubPaths[path]; ok {
 		return expectedMethod == method
 	}

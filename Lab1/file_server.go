@@ -78,7 +78,7 @@ func handlePostRequest(conn net.Conn, req *http.Request) {
 	}
 	// The upload succeeded. The response has no body.
 	// TODO(hj): Make a general function for writing response and then
-	// debugging. Can correctly set conentLength too.
+	//   debugging. Can correctly set conentLength too.
 	if _, err := conn.Write(CreateHttpResponseHeader(200, 0, "")); err != nil {
 		slog.Debug(fmt.Sprintf("Error writing response header: %v", err))
 	}
