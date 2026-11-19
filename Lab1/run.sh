@@ -23,18 +23,20 @@ test "$(docker inspect -f '{{.State.Running}}' "$container")" = true
 
 docker push "$IMAGE"
 image_ref=$(docker image inspect -f '{{index .RepoDigests 0}}' "$IMAGE")
-printf 'Expected image: %s\n' "$image_ref"
+printf 'Expected image: %s\n' "$IMAGE"
 
 ssh -i "$HOME/.ssh/tda596-aws.pem" -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
-    "ec2-user@$EC2_HOST" bash -s -- "$image_ref" <<'REMOTE'
+    "ec2-user@$EC2_HOST" bash -s -- "$image_ref" "$IMAGE" <<'REMOTE'
 set -euo pipefail
 sudo -n docker pull "$1"
+sudo -n docker tag "$1" "$2"
+expected_id=$(sudo -n docker image inspect --format '{{.Id}}' "$1")
 sudo -n docker rm -f lab1 || true
 sudo -n docker run -d --name lab1 --restart unless-stopped \
-    -p 80:8080 -e LOG_LEVEL=debug "$1"
-actual=$(sudo -n docker inspect --format '{{.State.Status}} {{.Config.Image}}' lab1)
-if [[ "$actual" != "running $1" ]]; then
-    printf 'Deployment verification failed.\nExpected: running %s\nActual: %s\n' "$1" "$actual" >&2
+    -p 80:8080 -e LOG_LEVEL=debug "$2"
+actual=$(sudo -n docker inspect --format '{{.State.Status}} {{.Image}}' lab1)
+if [[ "$actual" != "running $expected_id" ]]; then
+    printf 'Deployment verification failed for %s.\nExpected: running %s\nActual: %s\n' "$2" "$expected_id" "$actual" >&2
     exit 1
 fi
 REMOTE
@@ -42,4 +44,4 @@ REMOTE
 url="http://$EC2_HOST/index.html"
 curl -fsS --retry 5 --retry-connrefused --retry-delay 1 \
     --max-time 5 "$url" >/dev/null
-printf 'Verified %s\nRunning image: %s\nTest URL: %s\n' "$IMAGE" "$image_ref" "$url"
+printf 'Verified running %s\nTest URL: %s\n' "$IMAGE" "$url"
